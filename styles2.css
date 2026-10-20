@@ -1,0 +1,418 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --primary: #4a6cf7;
+  --primary-dark: #3a5ce0;
+  --dark: #1a1a2e;
+  --light-gray: #f0f2f5;
+  --border-color: #e2e6ea;
+  --text-muted: #8892a4;
+  --text-secondary: #555e6d;
+  --success-bg: #e8f5e9;
+  --success-text: #2e7d32;
+  --warning-bg: #fff3e0;
+  --warning-text: #e65100;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--light-gray);
+  color: var(--dark);
+  min-height: 100vh;
+}
+
+/* ═══════════════════ HEADER ═══════════════════ */
+header {
+  background: linear-gradient(135deg, var(--dark) 0%, #0f0f23 100%);
+  color: #fff;
+  padding: 1.2rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+header span {
+  font-size: 13px;
+  color: #a0b0d0;
+  opacity: 0.9;
+}
+
+/* ═══════════════════ LAYOUT ═══════════════════ */
+.layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 0;
+  height: calc(100vh - 60px);
+}
+
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .preview-panel {
+    display: none;
+  }
+}
+
+/* ═══════════════════ FORM PANEL ═══════════════════ */
+.form-panel {
+  background: #fff;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-shadow: inset -1px 0 0 var(--border-color);
+}
+
+.section-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 1.2rem 0 0.7rem;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e9ecf0;
+  transition: color 0.2s ease;
+}
+
+.section-header:first-of-type {
+  margin-top: 0;
+}
+
+.section-header:hover {
+  color: var(--primary);
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--dark);
+  background: #fafbfc;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+input[type="text"]:hover {
+  border-color: #d0d6e0;
+  background: #fff;
+}
+
+input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+  background: #fff;
+}
+
+.bullet-field {
+  position: relative;
+}
+
+.bullet-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--dark);
+  background: #fafbfc;
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+  transition: all 0.2s ease;
+  line-height: 1.15;
+}
+
+.bullet-field textarea:hover {
+  border-color: #d0d6e0;
+  background: #fff;
+}
+
+.bullet-field textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+  background: #fff;
+}
+
+.bullet-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+.btn-download {
+  margin-top: 1.8rem;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(74, 108, 247, 0.3);
+}
+
+.btn-download:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #2a4cc0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 108, 247, 0.4);
+}
+
+.btn-download:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(74, 108, 247, 0.3);
+}
+
+.btn-download:disabled {
+  background: #c5cad5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ═══════════════════ PREVIEW PANEL ═══════════════════ */
+.preview-panel {
+  overflow-y: auto;
+  padding: 2.5rem 2rem;
+  background: linear-gradient(135deg, #e8eaee 0%, #f3f5f9 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.preview-doc {
+  background: #fff;
+  width: 680px;
+  max-width: 100%;
+  padding: 40px 45px;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  font-family: 'Arial', sans-serif;
+  font-size: 11pt;
+  color: #1a1a1a;
+  line-height: 1.15;
+}
+
+.empty-placeholder {
+  font-style: italic;
+  color: #999;
+}
+
+/* ═══════════════════ DOCUMENT HEADER ═══════════════════ */
+.doc-header {
+  margin-bottom: 20px;
+}
+
+.doc-name {
+  text-align: left;
+  font-size: 22pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  color: #000;
+  font-family: 'Arial', sans-serif;
+}
+
+.doc-education {
+  text-align: left;
+  font-size: 10pt;
+  color: #333;
+  margin-bottom: 4px;
+  font-family: 'Arial', sans-serif;
+}
+
+.doc-contact {
+  text-align: left;
+  font-size: 10pt;
+  color: #666;
+  margin-bottom: 10px;
+  font-family: 'Arial', sans-serif;
+}
+
+.doc-divider {
+  height: 1px;
+  background: #000;
+  margin: 12px 0;
+}
+
+/* ═══════════════════ LETTER STYLES ═══════════════════ */
+.doc-letter {
+  font-size: 11pt;
+  line-height: 1.15;
+  font-family: 'Arial', sans-serif;
+}
+
+.doc-letter-date {
+  margin-bottom: 20px;
+  font-size: 11pt;
+}
+
+.doc-letter-greeting {
+  margin-bottom: 8px;
+  font-weight: normal;
+  font-size: 11pt;
+}
+
+.doc-letter-greeting b {
+  font-weight: 700;
+}
+
+.doc-letter-opening {
+  margin: 16px 0 12px;
+  font-size: 11pt;
+}
+
+.doc-letter-body {
+  margin-bottom: 20px;
+  text-align: justify;
+  line-height: 1.15;
+  font-size: 11pt;
+}
+
+.doc-letter-body p {
+  margin: 0 0 12px;
+}
+
+.doc-letter-body p:last-child {
+  margin-bottom: 0;
+}
+
+.doc-letter-closing {
+  margin: 20px 0 8px;
+  font-size: 11pt;
+}
+
+.doc-letter-sign {
+  margin-top: 10px;
+  font-size: 11pt;
+}
+
+.ttd-img {
+  height: 60px;
+  width: auto;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sign-name {
+  font-weight: bold;
+  font-size: 11pt;
+}
+
+.sign-contact {
+  font-weight: normal;
+  font-size: 11pt;
+}
+
+/* ═══════════════════ BADGES ═══════════════════ */
+.badge-filled {
+  display: inline-block;
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 9.5px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.badge-empty {
+  display: inline-block;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 9.5px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+/* Nav button (pindah halaman) */
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.form-panel input[type="text"]#posisi,
+.form-panel input[type="text"]#nama-perusahaan {
+  margin-bottom: 10px;
+}
+
+.form-panel input[type="text"]#nama-perusahaan {
+  margin-bottom: 20px;
+}
+/* Tombol PDF dengan warna merah */
+.btn-pdf {
+  margin-top: 8px;
+  background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+  box-shadow: 0 2px 8px rgba(229, 57, 53, 0.3);
+}
+
+.btn-pdf:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b71c1c 0%, #7f0000 100%);
+  box-shadow: 0 4px 12px rgba(229, 57, 53, 0.4);
+}
+/* ═══════════════════ SCROLLBAR ═══════════════════ */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Filler — Nama Anda</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📄 Resume Filler</h1>
+    <span>Isi form kiri → preview langsung → download .docx</span>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <a href="index3.html" class="nav-btn">📋 CV</a>
+    <a href="index2.html" class="nav-btn">✉️ Surat Lamaran →</a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ═══════════════════ FORM PANEL ═══════════════════ -->
+  <div class="form-panel">
+    <div class="section-header">💼 Posisi</div>
+    <input type="text" id="posisi" placeholder="Masukkan posisi yang dilamar" />
+    <div class="section-header">👤 Header</div>
+    <div class="section-header">🌐 Bahasa Dokumen</div>
+<div class="field">
+  <label>Pilih Bahasa Output</label>
+  <div class="lang-toggle">
+    <button type="button" id="btn-lang-id" class="lang-btn active" onclick="setLang('id')">🇮🇩 Indonesia</button>
+    <button type="button" id="btn-lang-en" class="lang-btn" onclick="setLang('en')">🇬🇧 English</button>
+  </div>
+</div>
+    <div class="field">
+      <label>Tagline 1 <span id="badge-tag1" class="badge-empty">Kosong</span></label>
+      <input type="text" id="tag1" placeholder="cth: Kota, Negara" oninput="sync()">
+    </div>
+    <div class="field">
+      <label>Tagline 2 <span id="badge-tag2" class="badge-empty">Kosong</span></label>
+      <input type="text" id="tag2" placeholder="cth: Cloud Infrastructure | Security" oninput="sync()">
+    </div>
+
+    <div class="section-header">📋 Professional Summary</div>
+    <div class="field">
+      <label>Deskripsi diri <span id="badge-ringkasan" class="badge-empty">Kosong</span></label>
+      <div class="bullet-field">
+        <textarea id="ringkasan" rows="4"
+          placeholder="Tuliskan ringkasan profesional dan pengalaman komunikasi Anda..."
+          oninput="sync()"></textarea>
+        <div class="bullet-hint">ℹ️ Ringkasan bebas format (bukan bullet)</div>
+      </div>
+    </div>
+
+    <div class="section-header">💼 Pengalaman Kerja</div>
+    <p class="bullet-hint">Atur jabatan, perusahaan, tanggal, dan pencapaian melalui tombol “Ubah Profil &amp; Riwayat”.</p>
+
+    <div class="section-header">🏆 Pengalaman Organisasi</div>
+    <div class="field">
+      <label>Kegiatan & pencapaian <span id="badge-org1" class="badge-empty">Kosong</span></label>
+      <div class="bullet-field">
+        <textarea id="org1" rows="4"
+          placeholder="Tuliskan kegiatan dan pencapaian organisasi..."
+          oninput="autoBullet(this); sync()"></textarea>
+        <div class="bullet-hint">💡 Tekan Enter untuk baris baru — titik (•) otomatis ditambahkan</div>
+      </div>
+    </div>
+
+    <div class="section-header">🎯 Skills</div>
+    <div id="skills-container">
+    </div>
+    <button class="btn-add-skill" onclick="addSkill()">+ Tambah Keahlian</button>
+
+    <button class="btn-download" id="btnDownload" onclick="generateDocx()" disabled>
+      ⬇ Download Resume .docx
+    </button>
+    <button class="btn-download btn-pdf" id="btnDownloadPdf" onclick="generateResumePdf()" disabled>
+      ⬇ Download .pdf
+    </button>
+
+  </div>
+
+  <!-- ═══════════════════ PREVIEW PANEL ═══════════════════ -->
+  <div class="preview-panel">
+    <div class="preview-doc">
+
+      <div class="doc-name" data-profile="name">Nama Anda</div>
+      <div class="doc-subline" id="prev-subline">
+        <em class="empty-placeholder">Tagline 1 belum diisi</em> &nbsp;|&nbsp;
+        <em class="empty-placeholder">Tagline 2 belum diisi</em> &nbsp;|&nbsp;
+        <span data-profile="educationDegree">Degree / Major</span>
+      </div>
+      <div class="doc-contact" data-profile="contact">
+        Nomor Telepon &nbsp;|&nbsp; email@example.com &nbsp;|&nbsp; Kota, Negara
+      </div>
+
+      <div class="doc-section-title" id="prev-section-summary">Professional Summary</div>
+      <div id="prev-ringkasan" style="font-size:10pt; line-height:1.15; margin-bottom:8px;">
+        <em class="empty-placeholder">Ringkasan belum diisi...</em>
+      </div>
+
+      <div class="doc-section-title" id="prev-section-workexp">Work Experience</div>
+      <div data-work-experiences></div>
+      <div class="doc-section-title" id="prev-section-education">Education</div>
+      <div class="doc-job">
+        <div class="doc-job-row">
+          <span class="doc-job-title" data-profile="educationInstitution">Nama Universitas</span>
+          <span class="doc-job-date" data-profile-range="educationStart|educationEnd"></span>
+        </div>
+        <div class="doc-job-org">
+          <span data-profile="educationDegree">Degree / Major</span> — <span data-profile="educationLocation">Kota, Negara</span> &nbsp;|&nbsp;
+          <b>IPK: <span data-profile="educationGpa">IPK / GPA</span></b>
+        </div>
+      </div>
+
+      <div class="doc-section-title" id="prev-section-skills">Skills</div>
+      <div class="doc-skills-grid" id="prev-skills">
+        <!-- Keahlian akan diisi secara dinamis melalui JavaScript -->
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="api-config.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>
