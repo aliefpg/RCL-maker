@@ -12,24 +12,27 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --dark: #e5e7eb;
-  --light-gray: #111827;
-  --border-color: #374151;
-  --text-muted: #9ca3af;
-  --text-secondary: #cbd5e1;
-  --placeholder-text: #94a3b8;
-  --success-bg: #123524;
-  --success-text: #86efac;
-  --warning-bg: #422006;
-  --warning-text: #fcd34d;
-  --app-background: #111827;
-  --panel-background: #1f2937;
-  --field-background: #111827;
-  --field-hover-background: #263449;
-  --app-text: #e5e7eb;
-  --app-border: #374151;
-  --app-muted: #9ca3af;
-  --preview-background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+  --primary: #8bae66;
+  --primary-dark: #628141;
+  --dark: #ebd5ab;
+  --light-gray: #1b211a;
+  --border-color: #48533f;
+  --text-muted: #b9ae8f;
+  --text-secondary: #ebd5ab;
+  --hr-color: #8bae66;
+  --placeholder-text: #b9ae8f;
+  --success-bg: #34472c;
+  --success-text: #d5e8bc;
+  --warning-bg: #493f27;
+  --warning-text: #ebd5ab;
+  --app-background: #1b211a;
+  --panel-background: #252e22;
+  --field-background: #1b211a;
+  --field-hover-background: #303b2a;
+  --app-text: #ebd5ab;
+  --app-border: #48533f;
+  --app-muted: #c8bb96;
+  --preview-background: linear-gradient(135deg, #141a13 0%, #20281d 100%);
 }
 
 body {
@@ -83,11 +86,72 @@ textarea:focus,
 }
 
 .preview-doc {
-  --dark: #1a1a2e;
-  --text-muted: #8892a4;
-  --text-secondary: #555e6d;
-  --placeholder-text: #c5cad5;
-  color: #1a1a1a;
+  color: var(--app-text);
+  background: var(--panel-background);
+}
+
+:root[data-theme="dark"] header {
+  background: linear-gradient(135deg, #1b211a 0%, #303b2a 100%);
+  color: #ebd5ab;
+}
+
+:root[data-theme="dark"] header span {
+  color: #c8bb96;
+}
+
+:root[data-theme="dark"] .nav-btn,
+:root[data-theme="dark"] .theme-toggle,
+:root[data-theme="dark"] .lang-btn.active,
+:root[data-theme="dark"] .btn-download {
+  color: #ebd5ab;
+}
+
+:root[data-theme="dark"] .btn-download:disabled {
+  color: #b9ae8f;
+  background: #303b2a;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .btn-delete-skill {
+  color: #b9ae8f;
+  border-color: #48533f;
+}
+
+:root[data-theme="dark"] .btn-delete-skill:hover {
+  color: #ebd5ab;
+  background: #493f27;
+  border-color: #628141;
+}
+
+:root[data-theme="dark"] .preview-doc {
+  color: #ebd5ab;
+  background: #252e22;
+  border: 1px solid #48533f;
+}
+
+:root[data-theme="dark"] .doc-name,
+:root[data-theme="dark"] .doc-section-title,
+:root[data-theme="dark"] .doc-bullets li::before,
+:root[data-theme="dark"] .doc-skills-grid b {
+  color: #ebd5ab;
+}
+
+:root[data-theme="dark"] .doc-education,
+:root[data-theme="dark"] .doc-contact,
+:root[data-theme="dark"] .doc-job-date,
+:root[data-theme="dark"] .doc-job-org,
+:root[data-theme="dark"] .doc-letter {
+  color: #d8c8a3;
+}
+
+:root[data-theme="dark"] .doc-divider,
+:root[data-theme="dark"] .doc-section-title,
+:root[data-theme="dark"] .doc-contact {
+  border-color: #628141;
+}
+
+:root[data-theme="dark"] .doc-divider {
+  background: #628141;
 }
 
 .theme-toggle {
@@ -114,7 +178,7 @@ textarea:focus,
 .nav-btn:focus-visible,
 button:focus-visible,
 .signature-file-label:focus-visible {
-  outline: 3px solid #60a5fa;
+  outline: 3px solid #ebd5ab;
   outline-offset: 2px;
 }
 
@@ -132,9 +196,9 @@ button:focus-visible,
 }
 
 .signature-controls button.active {
-  color: #bfdbfe;
-  background: #1e3a5f;
-  border-color: #60a5fa;
+  color: #ebd5ab;
+  background: #34472c;
+  border-color: #8bae66;
 }
 
 #signature-status {
@@ -188,22 +252,22 @@ button:focus-visible,
 
 :root[data-theme="dark"] .lang-btn.active {
   color: #fff;
-  background: #334155;
-  border-color: #64748b;
+  background: #628141;
+  border-color: #8bae66;
 }
 
 :root[data-theme="dark"] .btn-add-skill {
-  color: #86efac;
-  background: #123524;
-  border-color: #166534;
+  color: #ebd5ab;
+  background: #34472c;
+  border-color: #628141;
 }
 
 :root[data-theme="dark"] ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: #1b211a;
 }
 
 :root[data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: #628141;
 }
 
 @media (max-width: 1024px) {
