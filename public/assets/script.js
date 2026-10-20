@@ -34,6 +34,29 @@ async function fetchApi(path, options) {
 }
 
 const PROFILE_STORAGE_KEY = 'resumeFillerProfile';
+const THEME_STORAGE_KEY = 'resumeFillerTheme';
+
+function setTheme(theme) {
+  const isDark = theme === 'dark';
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+    button.textContent = isDark ? '☀️ Light mode' : '🌙 Dark mode';
+    button.setAttribute('aria-pressed', String(isDark));
+    button.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTheme(document.documentElement.dataset.theme);
+  document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+    button.addEventListener('click', () => {
+      const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      setTheme(nextTheme);
+    });
+  });
+});
+
 const PROFILE_DEFAULTS = {
   name: 'Nama Anda',
   phone: 'Nomor Telepon',
@@ -51,6 +74,8 @@ const PROFILE_DEFAULTS = {
   educationStart: '',
   educationEnd: '',
   educationGpa: 'IPK / GPA',
+  signatureMode: 'manual',
+  signatureImage: '',
 };
 
 let sharedProfile = { ...PROFILE_DEFAULTS };
@@ -60,10 +85,16 @@ function getProfile() {
 }
 
 function normalizeProfile(input) {
-  const normalized = Object.fromEntries(Object.entries(PROFILE_DEFAULTS).filter(([key]) => key !== 'experiences').map(([key, fallback]) => [
+  const normalized = Object.fromEntries(Object.entries(PROFILE_DEFAULTS).filter(([key]) => !['experiences', 'signatureImage'].includes(key)).map(([key, fallback]) => [
     key,
     typeof input?.[key] === 'string' ? input[key].trim().slice(0, 200) : fallback,
   ]));
+  normalized.signatureImage = typeof input?.signatureImage === 'string'
+    && input.signatureImage.length <= 700000
+    && /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(input.signatureImage)
+    ? input.signatureImage
+    : '';
+  normalized.signatureMode = input?.signatureMode === 'upload' ? 'upload' : 'manual';
   if (Array.isArray(input?.experiences)) {
     normalized.experiences = input.experiences.filter(item => item && typeof item === 'object').map(item => ({
       role: String(item.role || '').slice(0, 200),
@@ -174,10 +205,87 @@ function updateProfilePreview() {
     const [start, end] = el.dataset.profileRange.split('|');
     el.textContent = profileDateRange(profile[start], profile[end]);
   });
+  updateSignaturePreview(profile);
   renderExperiencePreview();
 
   const title = document.querySelector('title');
   if (title) title.textContent = `${title.textContent.split(' — ')[0]} — ${profile.name}`;
+}
+
+function updateSignaturePreview(profile = getProfile()) {
+  const signature = document.getElementById('prev-signature');
+  const status = document.getElementById('signature-status');
+  const uploadButton = document.getElementById('signature-upload-mode');
+  const manualButton = document.getElementById('signature-manual-mode');
+  if (!signature || !status || !uploadButton || !manualButton) return;
+
+  const useImage = profile.signatureMode === 'upload' && Boolean(profile.signatureImage);
+  signature.className = `signature-space${useImage ? '' : ' manual'}`;
+  signature.innerHTML = useImage
+    ? `<img class="signature-image" src="${profile.signatureImage}" alt="Tanda tangan">`
+    : '';
+  status.textContent = useImage
+    ? 'Pratinjau tanda tangan gambar; file tersimpan di browser ini.'
+    : profile.signatureMode === 'upload'
+      ? 'Pilih file PNG atau JPEG untuk memakai tanda tangan gambar.'
+      : 'Ruang tanda tangan disediakan untuk ditandatangani setelah surat dicetak.';
+  uploadButton.classList.toggle('active', profile.signatureMode === 'upload');
+  manualButton.classList.toggle('active', profile.signatureMode !== 'upload');
+}
+
+function setupSignatureControls() {
+  const uploadButton = document.getElementById('signature-upload-mode');
+  const manualButton = document.getElementById('signature-manual-mode');
+  const fileInput = document.getElementById('signature-file');
+  if (!uploadButton || !manualButton || !fileInput) return;
+
+  uploadButton.addEventListener('click', () => {
+    if (sharedProfile.signatureImage) {
+      sharedProfile.signatureMode = 'upload';
+      persistProfile();
+      updateSignaturePreview();
+      return;
+    }
+    fileInput.click();
+  });
+
+  manualButton.addEventListener('click', () => {
+    sharedProfile.signatureMode = 'manual';
+    persistProfile();
+    updateSignaturePreview();
+  });
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 512 * 1024) {
+      alert('Pilih gambar PNG atau JPEG dengan ukuran maksimal 512 KB.');
+      fileInput.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => {
+      alert('Gambar tanda tangan tidak dapat dibaca. Coba pilih file lain.');
+      fileInput.value = '';
+    };
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      if (!/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(dataUrl) || dataUrl.length > 700000) {
+        alert('Format atau ukuran gambar tanda tangan tidak valid.');
+        fileInput.value = '';
+        return;
+      }
+      sharedProfile.signatureImage = dataUrl;
+      sharedProfile.signatureMode = 'upload';
+      persistProfile();
+      updateSignaturePreview();
+      fileInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  updateSignaturePreview();
 }
 
 function addProfileForm() {
@@ -238,7 +346,11 @@ function addProfileForm() {
   editor.querySelector('.profile-open-button').addEventListener('click', () => dialog.showModal());
   editor.querySelector('.profile-close-button').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', event => {
-    if (event.target === dialog) dialog.close();
+    if (event.target !== dialog) return;
+    const bounds = dialog.getBoundingClientRect();
+    const insideDialog = event.clientX >= bounds.left && event.clientX <= bounds.right
+      && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+    if (!insideDialog) dialog.close();
   });
 
   if (!document.getElementById('profile-editor-styles')) {
@@ -393,6 +505,7 @@ function addProfileForm() {
   });
 
   updateProfilePreview();
+  setupSignatureControls();
 }
 
 function persistProfile() {
@@ -458,6 +571,7 @@ function setLang(lang) {
   // Update tombol aktif
   document.getElementById('btn-lang-id').classList.toggle('active', lang === 'id');
   document.getElementById('btn-lang-en').classList.toggle('active', lang === 'en');
+  updateGradeLabels(lang);
 
   // Update label section di preview
   const L = LABELS[lang];
@@ -476,6 +590,12 @@ function setLang(lang) {
   refreshProfileMonthLabels();
   updateProfilePreview();
   sync();
+}
+
+function updateGradeLabels(lang) {
+  document.querySelectorAll('[data-grade-label]').forEach(label => {
+    label.textContent = lang === 'en' ? 'GPA' : 'IPK';
+  });
 }
 // ══════════════════════════════════════════════════════
 // AUTO BULLET LOGIC (Resume only)
@@ -918,6 +1038,7 @@ function setLangCV(lang) {
   currentLangCV = lang;
   document.getElementById('btn-lang-id').classList.toggle('active', lang === 'id');
   document.getElementById('btn-lang-en').classList.toggle('active', lang === 'en');
+  updateGradeLabels(lang);
 
   const L = LABELS_CV[lang];
   const sectionMap = {

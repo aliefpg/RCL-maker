@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CV Filler — Nama Anda</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="styles3.css">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('resumeFillerTheme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch { document.documentElement.dataset.theme = 'light'; }</script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/styles3.css">
+  <link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
 
@@ -14,9 +16,10 @@
     <h1>📄 CV Filler</h1>
     <span>Isi form kiri → preview langsung → download .docx</span>
   </div>
-  <div style="display:flex; gap:8px;">
+  <div class="header-actions" style="display:flex; gap:8px;">
     <a href="index.html" class="nav-btn">📄 Resume</a>
     <a href="index2.html" class="nav-btn">✉️ Surat Lamaran</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">🌙 Dark mode</button>
   </div>
 </header>
 
@@ -87,7 +90,7 @@
           <span class="doc-job-title"><span data-profile="educationInstitution">Nama Universitas</span> — <span data-profile="educationLocation">Kota, Negara</span></span>
           <span class="doc-job-date" data-profile-range="educationStart|educationEnd"></span>
         </div>
-        <div class="doc-job-org"><span data-profile="educationDegree">Degree / Major</span> — GPA <span data-profile="educationGpa">IPK / GPA</span></div>
+        <div class="doc-job-org"><span data-profile="educationDegree">Degree / Major</span> — <span data-grade-label>IPK</span> <span data-profile="educationGpa">IPK / GPA</span></div>
       </div>
         <!-- Projects temporarily hidden.
         <div class="doc-section-title" id="prev-section-projects">Projects</div>
@@ -103,7 +106,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-<script src="script.js"></script>
+<script src="assets/script.js"></script>
 
 </body>
 </html>

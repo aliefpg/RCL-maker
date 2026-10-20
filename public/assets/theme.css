@@ -1,0 +1,331 @@
+:root {
+  color-scheme: light;
+  --app-background: #f0f2f5;
+  --panel-background: #fff;
+  --field-background: #fafbfc;
+  --field-hover-background: #fff;
+  --app-text: #1a1a2e;
+  --app-border: #e2e6ea;
+  --app-muted: #64748b;
+  --preview-background: linear-gradient(135deg, #e8eaee 0%, #f3f5f9 100%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --dark: #e5e7eb;
+  --light-gray: #111827;
+  --border-color: #374151;
+  --text-muted: #9ca3af;
+  --text-secondary: #cbd5e1;
+  --placeholder-text: #94a3b8;
+  --success-bg: #123524;
+  --success-text: #86efac;
+  --warning-bg: #422006;
+  --warning-text: #fcd34d;
+  --app-background: #111827;
+  --panel-background: #1f2937;
+  --field-background: #111827;
+  --field-hover-background: #263449;
+  --app-text: #e5e7eb;
+  --app-border: #374151;
+  --app-muted: #9ca3af;
+  --preview-background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+}
+
+body {
+  background: var(--app-background);
+  color: var(--app-text);
+}
+
+.form-panel {
+  color: var(--app-text);
+  background: var(--panel-background);
+  border-color: var(--app-border);
+}
+
+.section-header {
+  border-color: var(--app-border);
+}
+
+input[type="text"],
+textarea,
+.skill-label,
+.skill-desc,
+.project-name,
+.project-year,
+.project-desc {
+  color: var(--app-text);
+  background: var(--field-background);
+  border-color: var(--app-border);
+}
+
+input[type="text"]:hover,
+input[type="text"]:focus,
+textarea:hover,
+textarea:focus,
+.skill-label:hover,
+.skill-desc:hover,
+.project-name:hover,
+.project-year:hover,
+.project-desc:hover {
+  color: var(--app-text);
+  background: var(--field-hover-background);
+}
+
+.skill-item,
+.project-item {
+  background: var(--field-background);
+  border-color: var(--app-border);
+}
+
+.preview-panel {
+  background: var(--preview-background);
+}
+
+.preview-doc {
+  --dark: #1a1a2e;
+  --text-muted: #8892a4;
+  --text-secondary: #555e6d;
+  --placeholder-text: #c5cad5;
+  color: #1a1a1a;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-toggle:hover {
+  background: rgb(255 255 255 / 20%);
+}
+
+.theme-toggle:focus-visible,
+.nav-btn:focus-visible,
+button:focus-visible,
+.signature-file-label:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.signature-controls {
+  color: var(--app-text);
+  background: var(--panel-background);
+  border-color: var(--app-border);
+}
+
+.signature-controls button,
+.signature-file-label {
+  color: var(--app-text);
+  background: var(--field-background);
+  border-color: var(--app-border);
+}
+
+.signature-controls button.active {
+  color: #bfdbfe;
+  background: #1e3a5f;
+  border-color: #60a5fa;
+}
+
+#signature-status {
+  color: var(--app-muted);
+}
+
+.add-experience-button,
+.remove-experience-button {
+  color: var(--app-text);
+  background: var(--field-background);
+  border-color: var(--app-border);
+}
+
+:root[data-theme="dark"] .profile-dialog {
+  color: var(--app-text);
+  background: var(--panel-background);
+}
+
+:root[data-theme="dark"] .profile-open-button,
+:root[data-theme="dark"] .profile-close-button {
+  color: var(--app-text);
+  background: var(--field-background);
+  border-color: var(--app-border);
+}
+
+:root[data-theme="dark"] .profile-group,
+:root[data-theme="dark"] .experience-card {
+  border-color: var(--app-border);
+}
+
+:root[data-theme="dark"] .profile-editor-hint,
+:root[data-theme="dark"] .profile-fields label,
+:root[data-theme="dark"] .experience-grid label {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .profile-fields input,
+:root[data-theme="dark"] .experience-grid input,
+:root[data-theme="dark"] .experience-grid select,
+:root[data-theme="dark"] .experience-grid textarea {
+  color: var(--app-text);
+  background: var(--field-background);
+  border: 1px solid var(--app-border);
+}
+
+:root[data-theme="dark"] .lang-btn {
+  color: var(--app-text);
+  background: var(--field-background);
+  border-color: var(--app-border);
+}
+
+:root[data-theme="dark"] .lang-btn.active {
+  color: #fff;
+  background: #334155;
+  border-color: #64748b;
+}
+
+:root[data-theme="dark"] .btn-add-skill {
+  color: #86efac;
+  background: #123524;
+  border-color: #166534;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+@media (max-width: 1024px) {
+  .layout {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+  }
+
+  .form-panel {
+    overflow: visible;
+    padding: 1.25rem;
+  }
+
+  .preview-panel {
+    display: flex;
+    overflow: visible;
+    padding: 1.25rem;
+  }
+
+  .preview-doc {
+    width: min(100%, 760px);
+    padding: clamp(20px, 5vw, 40px);
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 640px) {
+  header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 1rem;
+  }
+
+  header > div {
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 17px;
+  }
+
+  header span {
+    flex-basis: 100%;
+    font-size: 12px;
+  }
+
+  .header-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+  }
+
+  .header-actions .nav-btn,
+  .header-actions .theme-toggle {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 8px;
+    text-align: center;
+  }
+
+  .header-actions .theme-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .form-panel {
+    padding: 1rem;
+  }
+
+  .preview-panel {
+    padding: 1rem;
+  }
+
+  .preview-doc {
+    padding: 20px 16px;
+    font-size: 10pt;
+  }
+
+  .doc-job-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .doc-job-date {
+    white-space: normal;
+  }
+
+  .skill-item,
+  .project-item {
+    flex-wrap: wrap;
+  }
+
+  .skill-fields,
+  .project-fields {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .project-fields .project-name,
+  .project-fields .project-year,
+  .project-fields .project-desc {
+    grid-column: 1;
+  }
+
+  .signature-controls {
+    font-size: .85rem;
+  }
+
+  .profile-dialog {
+    width: calc(100vw - 20px) !important;
+    max-height: 90dvh !important;
+    padding: 16px !important;
+  }
+
+  .lang-toggle {
+    flex-wrap: wrap;
+  }
+
+  .lang-btn {
+    min-height: 42px;
+  }
+}

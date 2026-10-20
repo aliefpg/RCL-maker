@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const { Image } = require('docx');
+const { ImageRun } = require('docx');
 const htmlPdf = require('html-pdf-node');
 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition } = require('docx');
 
@@ -28,10 +28,16 @@ const DEFAULT_PROFILE = {
 };
 
 function getProfile(input = {}, requestBody = {}) {
-  const profile = Object.fromEntries(Object.entries(DEFAULT_PROFILE).filter(([key]) => key !== 'experiences').map(([key, fallback]) => [
+  const profile = Object.fromEntries(Object.entries(DEFAULT_PROFILE).map(([key, fallback]) => [
     key,
     typeof input?.[key] === 'string' ? input[key].trim().slice(0, 200) : fallback,
   ]));
+  profile.signatureMode = input?.signatureMode === 'upload' ? 'upload' : 'manual';
+  profile.signatureImage = typeof input?.signatureImage === 'string'
+    && input.signatureImage.length <= 700000
+    && /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(input.signatureImage)
+    ? input.signatureImage
+    : '';
   if (Array.isArray(input?.experiences)) {
     profile.experiences = input.experiences.filter(item => item && typeof item === 'object').map(item => ({
       role: String(item.role || '').slice(0, 200),
@@ -50,8 +56,19 @@ function getProfile(input = {}, requestBody = {}) {
   return profile;
 }
 
+function getSignatureImage(profile) {
+  if (profile.signatureMode !== 'upload') return null;
+  const match = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(profile.signatureImage);
+  if (!match) return null;
+  return { mimeType: `image/${match[1]}`, data: Buffer.from(match[2], 'base64') };
+}
+
 function getEducationDegree(profile, lang = 'id') {
   return lang === 'en' ? profile.educationDegreeEn : profile.educationDegreeId;
+}
+
+function getGpaLabel(lang = 'id') {
+  return lang === 'en' ? 'GPA' : 'IPK';
 }
 
 const MONTHS = {
@@ -130,8 +147,8 @@ async function generatePdf(file, options) {
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static('.'));
+app.use(bodyParser.json({ limit: '1mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -295,7 +312,7 @@ const L = lang === 'en' ? {
       new Paragraph({
         children: [
           new TextRun({ text: getEducationDegree(PROFILE, lang), italics: true, ...sz(10), color: COLOR_GRAY }),
-          new TextRun({ text: `  |  IPK: ${PROFILE.educationGpa}`, bold: true, ...sz(10), color: COLOR_GRAY }),
+          new TextRun({ text: `  |  ${getGpaLabel(lang)}: ${PROFILE.educationGpa}`, bold: true, ...sz(10), color: COLOR_GRAY }),
         ],
         spacing: { after: 40 }
       }),
@@ -379,6 +396,10 @@ app.post('/api/generate-letter-docx', async (req, res) => {
     // ✅ Tambah posisi
     const { posisi, namaPerusahaan, program, institusi, tanggal, perusahaan, surat } = req.body;
     const PROFILE = getProfile(req.body.profile, req.body);
+    const signatureImage = getSignatureImage(PROFILE);
+    if (PROFILE.signatureMode === 'upload' && !signatureImage) {
+      return res.status(400).json({ error: 'Pilih gambar tanda tangan PNG atau JPEG terlebih dahulu.' });
+    }
 
     const children = [
       new Paragraph({
@@ -387,7 +408,7 @@ app.post('/api/generate-letter-docx', async (req, res) => {
       }),
       new Paragraph({
         children: [new TextRun({
-          text: `${getEducationDegree(PROFILE)} | ${PROFILE.educationInstitution} | IPK ${PROFILE.educationGpa}`,
+          text: `${getEducationDegree(PROFILE)} | ${PROFILE.educationInstitution} | GPA ${PROFILE.educationGpa}`,
           ...sz(10), font: 'Arial', color: '333333'
         })],
         spacing: { after: 60 }
@@ -441,8 +462,17 @@ app.post('/api/generate-letter-docx', async (req, res) => {
       }),
       new Paragraph({
         children: [new TextRun({ text: 'Hormat saya,', ...sz(11), font: 'Arial' })],
-        spacing: { after: 30 }
+        spacing: { after: 0 }
       }),
+      signatureImage
+        ? new Paragraph({
+          children: [new ImageRun({ data: signatureImage.data, transformation: { width: 150, height: 56 }, altText: { title: 'Tanda tangan', description: 'Tanda tangan pelamar' } })],
+          spacing: { after: 30 }
+        })
+        : new Paragraph({
+          children: [new TextRun({ text: ' ', ...sz(11), font: 'Arial' })],
+          spacing: { after: 1050 }
+        }),
       new Paragraph({
         children: [new TextRun({ text: PROFILE.name, ...sz(11), font: 'Arial', bold: true })],
         spacing: { after: 100 }
@@ -495,6 +525,13 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
   try {
     const { posisi, perusahaan, tanggal, surat } = req.body;
     const PROFILE = getProfile(req.body.profile, req.body);
+    const signatureImage = getSignatureImage(PROFILE);
+    if (PROFILE.signatureMode === 'upload' && !signatureImage) {
+      return res.status(400).json({ error: 'Pilih gambar tanda tangan PNG atau JPEG terlebih dahulu.' });
+    }
+    const signatureHtml = signatureImage
+      ? `<img class="signature-image" src="data:${signatureImage.mimeType};base64,${signatureImage.data.toString('base64')}" alt="Tanda tangan">`
+      : '<div class="signature-space"></div>';
 
     // 🆕 pecah isi surat jadi beberapa <p>, masing-masing 1 paragraf
     const suratParagraphs = (surat || '')
@@ -514,7 +551,8 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
         .divider { border-top: 2px solid #000; margin: 12px 0 20px; }
         .body-text { text-align: justify; line-height: 1.15; margin-bottom: 12pt; }
         .sign { margin-top: 10px; }
-        .sign img { height: 60px; display: block; margin-bottom: 4px; }
+        .signature-space { height: 68px; }
+        .signature-image { width: auto; max-width: 180px; height: 64px; object-fit: contain; object-position: left bottom; display: block; }
         .sign-name { font-weight: bold; }
         .greeting { margin-bottom: 8px; }
         .greeting-block { margin-bottom: 20px; margin-top: 10px; }
@@ -523,7 +561,7 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
     </head>
     <body>
       <div class="name">${escapeHtml(PROFILE.name)}</div>
-      <div class="tagline">${escapeHtml(getEducationDegree(PROFILE))} | ${escapeHtml(PROFILE.educationInstitution)} | IPK ${escapeHtml(PROFILE.educationGpa)}</div>
+      <div class="tagline">${escapeHtml(getEducationDegree(PROFILE))} | ${escapeHtml(PROFILE.educationInstitution)} | GPA ${escapeHtml(PROFILE.educationGpa)}</div>
       <div class="contact">${escapeHtml(PROFILE.phone)} | ${escapeHtml(PROFILE.email)} | ${escapeHtml(PROFILE.location)}</div>
       <div class="divider"></div>
 
@@ -538,6 +576,7 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
       <p>Hormat saya,</p>
 
       <div class="sign">
+        ${signatureHtml}
         <div class="sign-name">${escapeHtml(PROFILE.name)}</div>
         <div>${escapeHtml(PROFILE.phone)} | ${escapeHtml(PROFILE.email)}</div>
       </div>
@@ -747,7 +786,7 @@ ul:last-of-type li:last-child {
             <span class="job-date">${escapeHtml(profileDateRange(PROFILE, 'education', lang))}</span>
       </div>
       <div class="edu-org">
-            ${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; <b>IPK: ${escapeHtml(PROFILE.educationGpa)}</b>
+            ${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; <b>${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}</b>
       </div>
 
       <div class="section-title">${L.skills}</div>
@@ -868,7 +907,7 @@ app.post('/api/generate-cv-docx', async (req, res) => {
       jobHeader(PROFILE.educationInstitution, ` — ${PROFILE.educationLocation}`, profileDateRange(PROFILE, 'education', lang)),
       new Paragraph({
         children: [
-          new TextRun({ text: `${getEducationDegree(PROFILE, lang)} — IPK: ${PROFILE.educationGpa}`, italics: true, ...sz(10), color: COLOR_GRAY }),
+          new TextRun({ text: `${getEducationDegree(PROFILE, lang)} — ${getGpaLabel(lang)}: ${PROFILE.educationGpa}`, italics: true, ...sz(10), color: COLOR_GRAY }),
         ],
         spacing: { after: 40 }
       }),
@@ -1091,7 +1130,7 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       <span><span class="edu-institution">${escapeHtml(PROFILE.educationInstitution)}</span><span class="edu-location"> — ${escapeHtml(PROFILE.educationLocation)}</span></span>
       <span class="job-date">${escapeHtml(profileDateRange(PROFILE, 'education', lang))}</span>
     </div>
-    <div class="edu-org">${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; IPK: ${escapeHtml(PROFILE.educationGpa)}</div>
+    <div class="edu-org">${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; ${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}</div>
   </div>
 
   <!-- Projects temporarily hidden.
@@ -1132,15 +1171,15 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
 
 // Serve HTML
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/surat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index2.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index2.html'));
 });
 
 app.get('/cv', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index3.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index3.html'));
 });
 
 // Start server
