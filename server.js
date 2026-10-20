@@ -56,6 +56,28 @@ function getProfile(input = {}, requestBody = {}) {
   return profile;
 }
 
+function getOrganizationExperiences(value, profile) {
+  if (profile?.organizationExperienceEnabled === false) return [];
+  if (Array.isArray(profile?.organizationExperiences)) {
+    return profile.organizationExperiences.filter(item => item && typeof item === 'object').map(item => ({
+      role: String(item.role || '').slice(0, 200),
+      company: String(item.company || '').slice(0, 200),
+      location: String(item.location || '').slice(0, 200),
+      start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
+      end: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.end) ? item.end : '',
+      description: String(item.description || '').slice(0, 5000),
+    }));
+  }
+  const legacyDescription = profile?.organizationExperience || value;
+  return profile?.organizationExperienceEnabled !== false && typeof legacyDescription === 'string' && legacyDescription.trim()
+    ? [{ role: '', company: '', location: '', start: '', end: '', description: legacyDescription.slice(0, 5000) }]
+    : [];
+}
+
+function hasOrganizationExperienceSection(experiences, profile) {
+  return profile?.organizationExperienceEnabled === true || experiences.length > 0;
+}
+
 function getSignatureImage(profile) {
   if (profile.signatureMode !== 'upload') return null;
   const match = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(profile.signatureImage);
@@ -91,9 +113,22 @@ function profileDateRange(profile, prefix, lang = 'id') {
 function experienceDocxChildren(profile, parseBullets, bulletRenderer, lang) {
   return profile.experiences.flatMap(experience => {
     const bullets = parseBullets(experience.description) || ['[isi]'];
+    const title = experience.company || experience.role || '[Perusahaan]';
     return [
-      jobHeader(experience.company || experience.role || '[Perusahaan]', ` — ${experience.location}`, profileDateRange(experience, '', lang)),
+      jobHeader(title, experience.location ? ` — ${experience.location}` : '', profileDateRange(experience, '', lang)),
       jobOrg(experience.role),
+      ...bullets.map(bulletRenderer),
+    ];
+  });
+}
+
+function organizationExperienceDocxChildren(experiences, parseBullets, bulletRenderer, lang) {
+  return experiences.flatMap(experience => {
+    const bullets = parseBullets(experience.description) || ['[isi]'];
+    const organization = [experience.company, experience.location].filter(Boolean).join(' — ');
+    return [
+      jobHeader(experience.role || '[Jabatan/peran]', '', profileDateRange(experience, '', lang)),
+      ...(organization ? [jobOrg(organization)] : []),
       ...bullets.map(bulletRenderer),
     ];
   });
@@ -103,13 +138,28 @@ function experienceHtml(profile, lang, parseBullets) {
   return profile.experiences.map(experience => `
     <div class="job-entry">
       <div class="job-header">
-        <span>${escapeHtml(experience.company || experience.role || '[Perusahaan]')} — ${escapeHtml(experience.location)}</span>
+        <span>${escapeHtml(experience.company || experience.role || '[Perusahaan]')}${experience.location ? ` <span class="job-location"><span class="job-location-separator">— </span>${escapeHtml(experience.location)}</span>` : ''}</span>
         <span class="job-date">${escapeHtml(profileDateRange(experience, '', lang))}</span>
       </div>
       <div class="job-org">${escapeHtml(experience.role)}</div>
       <ul>${parseBullets(experience.description).map(line => `<li>${escapeHtml(line)}</li>`).join('') || '<li>[isi]</li>'}</ul>
     </div>
   `).join('');
+}
+
+function organizationExperienceHtml(experiences, lang, parseBullets) {
+  return experiences.map(experience => {
+    const organization = [experience.company, experience.location].filter(Boolean).join(' — ');
+    return `
+      <div class="job-entry">
+        <div class="job-header">
+          <span>${escapeHtml(experience.role || '[Jabatan/peran]')}</span>
+          <span class="job-date">${escapeHtml(profileDateRange(experience, '', lang))}</span>
+        </div>
+        ${organization ? `<div class="job-org">${escapeHtml(organization)}</div>` : ''}
+        <ul>${parseBullets(experience.description).map(line => `<li>${escapeHtml(line)}</li>`).join('') || '<li>[isi]</li>'}</ul>
+      </div>`;
+  }).join('');
 }
 
 function escapeHtml(value) {
@@ -238,6 +288,8 @@ app.post('/api/generate-docx', async (req, res) => {
   try {
     const { tag1, tag2, ringkasan, job1, job2, job3, org1, skills, posisi, lang } = req.body;
     const PROFILE = getProfile(req.body.profile, req.body);
+    const organizationExperiences = getOrganizationExperiences(org1, req.body.profile);
+    const includeOrganizationSection = hasOrganizationExperienceSection(organizationExperiences, req.body.profile);
 
 const L = lang === 'en' ? {
   summary: 'Professional Summary',
@@ -261,7 +313,6 @@ const L = lang === 'en' ? {
     };
 
     const job3Parsed = parseBullets(job3) || ['[isi]'];
-    const org1Parsed = parseBullets(org1) || ['[isi]'];
 
     const skillParagraphs = (Array.isArray(skills) && skills.length > 0)
       ? skills
@@ -317,10 +368,13 @@ const L = lang === 'en' ? {
         spacing: { after: 40 }
       }),
 
+      ...(includeOrganizationSection ? [
+        sectionTitle(L.orgExp),
+        ...organizationExperienceDocxChildren(organizationExperiences, parseBullets, bulletPara, lang),
+      ] : []),
+
       sectionTitle(L.skills),
       ...skillParagraphs,
-
-      ...(org1Parsed.length && org1Parsed[0] !== '[isi]' ? [sectionTitle(L.orgExp), ...org1Parsed.map(bulletPara)] : []),
     ];
 
     const doc = new Document({
@@ -395,6 +449,10 @@ app.post('/api/generate-letter-docx', async (req, res) => {
   try {
     // ✅ Tambah posisi
     const { posisi, namaPerusahaan, program, institusi, tanggal, perusahaan, surat } = req.body;
+    const letterCity = typeof req.body.letterCity === 'string' ? req.body.letterCity.trim().slice(0, 200) : '';
+    const companyCity = typeof req.body.companyCity === 'string' ? req.body.companyCity.trim().slice(0, 200) : '';
+    const companyCountry = typeof req.body.companyCountry === 'string' ? req.body.companyCountry.trim().slice(0, 200) : '';
+    const companyLocation = [companyCity, companyCountry].filter(Boolean).join(', ') || '[Kota Perusahaan, Negara]';
     const PROFILE = getProfile(req.body.profile, req.body);
     const signatureImage = getSignatureImage(PROFILE);
     if (PROFILE.signatureMode === 'upload' && !signatureImage) {
@@ -426,7 +484,7 @@ app.post('/api/generate-letter-docx', async (req, res) => {
         spacing: { before: 0, after: 20 }
       }),
       new Paragraph({
-        children: [new TextRun({ text: `${PROFILE.location}, ${tanggal || '[isi]'} ${PROFILE.letterYear}`, ...sz(11), font: 'Arial' })],
+        children: [new TextRun({ text: `${letterCity || '[Kota surat]'}, ${tanggal || '[bulan]'} ${PROFILE.letterYear}`, ...sz(11), font: 'Arial' })],
         spacing: { after: 150 }
       }),
       new Paragraph({
@@ -441,7 +499,7 @@ app.post('/api/generate-letter-docx', async (req, res) => {
         spacing: { after: 100 }
       }),
       new Paragraph({
-        children: [new TextRun({ text: 'Kota Perusahaan, Negara', ...sz(11), font: 'Arial' })],
+        children: [new TextRun({ text: companyLocation, ...sz(11), font: 'Arial' })],
         spacing: { after: 200 }
       }),
       new Paragraph({
@@ -524,6 +582,10 @@ app.post('/api/generate-letter-docx', async (req, res) => {
 app.post('/api/generate-letter-pdf', async (req, res) => {
   try {
     const { posisi, perusahaan, tanggal, surat } = req.body;
+    const letterCity = typeof req.body.letterCity === 'string' ? req.body.letterCity.trim().slice(0, 200) : '';
+    const companyCity = typeof req.body.companyCity === 'string' ? req.body.companyCity.trim().slice(0, 200) : '';
+    const companyCountry = typeof req.body.companyCountry === 'string' ? req.body.companyCountry.trim().slice(0, 200) : '';
+    const companyLocation = [companyCity, companyCountry].filter(Boolean).join(', ') || '[Kota Perusahaan, Negara]';
     const PROFILE = getProfile(req.body.profile, req.body);
     const signatureImage = getSignatureImage(PROFILE);
     if (PROFILE.signatureMode === 'upload' && !signatureImage) {
@@ -565,11 +627,11 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
       <div class="contact">${escapeHtml(PROFILE.phone)} | ${escapeHtml(PROFILE.email)} | ${escapeHtml(PROFILE.location)}</div>
       <div class="divider"></div>
 
-      <div class="tanggal">${escapeHtml(PROFILE.location)}, ${escapeHtml(tanggal || '')} ${escapeHtml(PROFILE.letterYear)}</div>
+      <div class="tanggal">${escapeHtml(letterCity || '[Kota surat]')}, ${escapeHtml(tanggal || '[bulan]')} ${escapeHtml(PROFILE.letterYear)}</div>
       <div class="greeting-block">
           <div class="greeting">Yth.</div>
           <div class="greeting"><b>Tim Rekrutmen ${escapeHtml(perusahaan || '')}</b></div>
-          <div class="greeting">Kota Perusahaan, Negara</div>
+          <div class="greeting">${escapeHtml(companyLocation)}</div>
       </div>
       <p>Dengan hormat,</p>
       ${suratParagraphs}
@@ -606,6 +668,8 @@ app.post('/api/generate-resume-pdf', async (req, res) => {
   try {
     const { tag1, tag2, ringkasan, job1, job2, job3, org1, skills, posisi, lang } = req.body;
     const PROFILE = getProfile(req.body.profile, req.body);
+    const organizationExperiences = getOrganizationExperiences(org1, req.body.profile);
+    const includeOrganizationSection = hasOrganizationExperienceSection(organizationExperiences, req.body.profile);
 
 const L = lang === 'en' ? {
   summary: 'Professional Summary',
@@ -703,6 +767,8 @@ const L = lang === 'en' ? {
       margin-bottom: 4px;
       margin-top: 5px;
     }
+    .job-location { color: #444; font-style: italic; font-weight: normal; }
+    .job-location-separator, .edu-location-separator { color: inherit !important; }
     .turun {
     font-weight: bold; 
     font-size:11pt; 
@@ -758,6 +824,7 @@ ul:last-of-type li:last-child {
       font-weight: bold;
       margin-bottom: 2px;
     }
+    .edu-location { font-size: 10pt; font-weight: normal; font-style: italic; color: #767171; }
     .edu-org {
       font-size: 10pt;
       font-style: italic;
@@ -782,12 +849,17 @@ ul:last-of-type li:last-child {
 
       <div class="section-title">${L.education}</div>
       <div class="edu-row">
-            <span>${escapeHtml(PROFILE.educationInstitution)} — ${escapeHtml(PROFILE.educationLocation)}</span>
+            <span>${escapeHtml(PROFILE.educationInstitution)}<span class="edu-location"><span class="edu-location-separator"> — </span>${escapeHtml(PROFILE.educationLocation)}</span></span>
             <span class="job-date">${escapeHtml(profileDateRange(PROFILE, 'education', lang))}</span>
       </div>
       <div class="edu-org">
             ${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; <b>${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}</b>
       </div>
+
+      ${includeOrganizationSection ? `
+        <div class="section-title">${escapeHtml(L.orgExp)}</div>
+        ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
+      ` : ''}
 
       <div class="section-title">${L.skills}</div>
       <div class="skills-block">${renderSkills(skills)}</div>
@@ -821,6 +893,8 @@ app.post('/api/generate-cv-docx', async (req, res) => {
   try {
     const { ringkasan, job1, job2, job3, org1, projects, skills, posisi, lang } = req.body;
     const PROFILE = getProfile(req.body.profile, req.body);
+    const organizationExperiences = getOrganizationExperiences(org1, req.body.profile);
+    const includeOrganizationSection = hasOrganizationExperienceSection(organizationExperiences, req.body.profile);
 
     const L = lang === 'en' ? {
       workExp: 'Work Experience',
@@ -844,7 +918,6 @@ app.post('/api/generate-cv-docx', async (req, res) => {
     };
 
     const job3Parsed = parseBullets(job3) || ['[isi]'];
-    const org1Parsed = parseBullets(org1) || ['[isi]'];
 
     const skillParagraphs = (Array.isArray(skills) && skills.length > 0)
       ? skills
@@ -907,10 +980,15 @@ app.post('/api/generate-cv-docx', async (req, res) => {
       jobHeader(PROFILE.educationInstitution, ` — ${PROFILE.educationLocation}`, profileDateRange(PROFILE, 'education', lang)),
       new Paragraph({
         children: [
-          new TextRun({ text: `${getEducationDegree(PROFILE, lang)} — ${getGpaLabel(lang)}: ${PROFILE.educationGpa}`, italics: true, ...sz(10), color: COLOR_GRAY }),
+          new TextRun({ text: `${getEducationDegree(PROFILE, lang)} | ${getGpaLabel(lang)}: ${PROFILE.educationGpa}`, italics: true, ...sz(10), color: COLOR_GRAY }),
         ],
         spacing: { after: 40 }
       }),
+
+      ...(includeOrganizationSection ? [
+        sectionTitle(L.orgExp),
+        ...organizationExperienceDocxChildren(organizationExperiences, parseBullets, bulletParaCV, lang),
+      ] : []),
 
       // Projects temporarily hidden; restore these lines to re-enable the section.
       // sectionTitle(L.projects),
@@ -992,6 +1070,8 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
   try {
     const { ringkasan, job1, job2, job3, org1, projects, skills, posisi, lang } = req.body;
     const PROFILE = getProfile(req.body.profile, req.body);
+    const organizationExperiences = getOrganizationExperiences(org1, req.body.profile);
+    const includeOrganizationSection = hasOrganizationExperienceSection(organizationExperiences, req.body.profile);
 
     const L = lang === 'en' ? {
       workExp: 'Work Experience',
@@ -1099,6 +1179,8 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       margin-bottom: 4px;
       margin-top: 5px;
     }
+    .job-location { color: #444; font-style: italic; font-weight: normal; }
+    .job-location-separator, .edu-location-separator { color: inherit !important; }
     .turun { font-weight: bold; font-size:11pt; color:#000; }
     .lokasi { font-size: 10pt !important; font-style: italic; font-weight: normal !important; color: #444; }
     ul { margin: 4px 0 8px 18px; padding: 0; }
@@ -1108,7 +1190,7 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
     .skills-block p { font-size: 10pt; line-height: 1.3; text-align: justify; margin-bottom: 2px; }
     .edu-row { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 2px; }
     .edu-institution { font-weight: bold; font-size: 11pt; }
-    .edu-location { font-weight: normal; font-size: 10pt; }
+    .edu-location { font-weight: normal; font-size: 10pt; color: #767171; font-style: italic; }
     .edu-org { font-size: 10pt; font-style: italic; color: #767171; margin-top: 5px; }
   </style>
 </head>
@@ -1127,11 +1209,18 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
   <div class="education-block">
     <div class="section-title">${L.education}</div>
     <div class="edu-row">
-      <span><span class="edu-institution">${escapeHtml(PROFILE.educationInstitution)}</span><span class="edu-location"> — ${escapeHtml(PROFILE.educationLocation)}</span></span>
+      <span><span class="edu-institution">${escapeHtml(PROFILE.educationInstitution)}</span><span class="edu-location"><span class="edu-location-separator"> — </span>${escapeHtml(PROFILE.educationLocation)}</span></span>
       <span class="job-date">${escapeHtml(profileDateRange(PROFILE, 'education', lang))}</span>
     </div>
     <div class="edu-org">${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; ${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}</div>
   </div>
+
+  ${includeOrganizationSection ? `
+    <div class="section-block">
+      <div class="section-title">${L.orgExp}</div>
+      ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
+    </div>
+  ` : ''}
 
   <!-- Projects temporarily hidden.
   <div class="section-block">

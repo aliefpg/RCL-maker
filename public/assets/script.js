@@ -63,6 +63,8 @@ const PROFILE_DEFAULTS = {
   email: 'email@example.com',
   location: 'Kota, Negara',
   letterYear: '2026',
+  organizationExperienceEnabled: false,
+  organizationExperiences: [],
   experiences: [
     { role: 'Jabatan', company: 'Nama Perusahaan', location: 'Kota, Negara', start: '', end: '', description: '' },
     { role: 'Jabatan', company: 'Nama Perusahaan', location: 'Kota, Negara', start: '', end: '', description: '' },
@@ -84,11 +86,29 @@ function getProfile() {
   return { ...sharedProfile };
 }
 
+function getOrganizationExperienceText() {
+  if (!sharedProfile.organizationExperienceEnabled) return '';
+  return sharedProfile.organizationExperiences.map(experience => experience.description).filter(Boolean).join('\n');
+}
+
 function normalizeProfile(input) {
-  const normalized = Object.fromEntries(Object.entries(PROFILE_DEFAULTS).filter(([key]) => !['experiences', 'signatureImage'].includes(key)).map(([key, fallback]) => [
+  const normalized = Object.fromEntries(Object.entries(PROFILE_DEFAULTS).filter(([key]) => !['experiences', 'signatureImage', 'organizationExperienceEnabled', 'organizationExperiences'].includes(key)).map(([key, fallback]) => [
     key,
     typeof input?.[key] === 'string' ? input[key].trim().slice(0, 200) : fallback,
   ]));
+  normalized.organizationExperienceEnabled = input?.organizationExperienceEnabled === true;
+  normalized.organizationExperiences = Array.isArray(input?.organizationExperiences)
+    ? input.organizationExperiences.filter(item => item && typeof item === 'object').map(item => ({
+      role: String(item.role || '').slice(0, 200),
+      company: String(item.company || '').slice(0, 200),
+      location: String(item.location || '').slice(0, 200),
+      start: /^\d{4}-\d{2}$/.test(item.start) ? item.start : '',
+      end: /^\d{4}-\d{2}$/.test(item.end) ? item.end : '',
+      description: String(item.description || '').slice(0, 5000),
+    }))
+    : (normalized.organizationExperienceEnabled && typeof input?.organizationExperience === 'string' && input.organizationExperience.trim()
+      ? [{ role: '', company: '', location: '', start: '', end: '', description: input.organizationExperience.slice(0, 5000) }]
+      : []);
   normalized.signatureImage = typeof input?.signatureImage === 'string'
     && input.signatureImage.length <= 700000
     && /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(input.signatureImage)
@@ -167,18 +187,85 @@ function refreshProfileMonthLabels() {
 function renderExperiencePreview() {
   const profile = getProfile();
   document.querySelectorAll('[data-work-experiences]').forEach(container => {
-    container.innerHTML = profile.experiences.map(experience => {
+    container.innerHTML = renderExperienceEntries(profile.experiences);
+  });
+  document.querySelectorAll('[data-organization-experiences]').forEach(container => {
+    container.innerHTML = renderOrganizationExperienceEntries(profile.organizationExperiences);
+  });
+}
+
+function renderOrganizationExperienceEntries(experiences) {
+  return experiences.map(experience => {
+    const organization = [experience.company, experience.location].filter(Boolean).join(' — ');
+    const description = experience.description.trim()
+      ? `<ul class="doc-bullets">${parseBullets(experience.description).map(line => `<li>${escHtml(line)}</li>`).join('')}</ul>`
+      : '<ul class="doc-bullets"><li><em class="empty-placeholder">Deskripsi belum diisi...</em></li></ul>';
+    return `
+      <div class="doc-job">
+        <div class="doc-job-row">
+          <span class="doc-job-title">${escHtml(experience.role || '[Jabatan/peran]')}</span>
+          <span class="doc-job-date">${escHtml(profileDateRange(experience.start, experience.end))}</span>
+        </div>
+        ${organization ? `<div class="doc-job-org">${escHtml(organization)}</div>` : ''}
+        ${description}
+      </div>`;
+  }).join('');
+}
+
+function renderExperienceEntries(experiences) {
+  return experiences.map(experience => {
       const description = experience.description.trim()
         ? `<ul class="doc-bullets">${parseBullets(experience.description).map(line => `<li>${escHtml(line)}</li>`).join('')}</ul>`
         : '<ul class="doc-bullets"><li><em class="empty-placeholder">Deskripsi belum diisi...</em></li></ul>';
       return `
         <div class="doc-job">
           <div class="doc-job-row">
-            <span class="doc-job-title">${escHtml(experience.company || experience.role || '[Perusahaan]')}${experience.company && experience.location ? ` — ${escHtml(experience.location)}` : ''}</span>
+            <span class="doc-job-title">${escHtml(experience.company || experience.role || '[Perusahaan]')}${experience.company && experience.location ? ` <span class="doc-job-location"><span class="doc-job-location-separator">— </span>${escHtml(experience.location)}</span>` : ''}</span>
             <span class="doc-job-date">${escHtml(profileDateRange(experience.start, experience.end))}</span>
           </div>
           <div class="doc-job-org">${escHtml(experience.role)}</div>
           ${description}
+        </div>`;
+    }).join('');
+}
+
+function hasExperienceContent() {
+  return getProfile().experiences.some(experience => experience.description.trim()
+    || experience.start || experience.end
+    || (experience.role && experience.role !== 'Jabatan')
+    || (experience.company && experience.company !== 'Nama Perusahaan')
+    || (experience.location && experience.location !== 'Kota, Negara'));
+}
+
+function renderExperienceInputs() {
+  document.querySelectorAll('[data-work-experience-inputs]').forEach(container => {
+    container.innerHTML = getProfile().experiences.map((experience, index) => {
+      const details = [experience.role, experience.company].filter(Boolean).join(' — ');
+      const label = details || `Pengalaman ${index + 1}`;
+      return `
+        <div class="field">
+          <label>${escHtml(label)}</label>
+          <div class="bullet-field">
+            <textarea rows="4" data-inline-experience-index="${index}" placeholder="Tuliskan tanggung jawab dan pencapaian pekerjaan...">${escHtml(experience.description)}</textarea>
+            <div class="bullet-hint">ℹ️ Isi tanggung jawab atau pencapaian pengalaman kerja</div>
+          </div>
+        </div>`;
+    }).join('');
+  });
+}
+
+function renderOrganizationInputs() {
+  document.querySelectorAll('[data-organization-inputs]').forEach(container => {
+    container.innerHTML = getProfile().organizationExperiences.map((experience, index) => {
+      const details = [experience.role, experience.company].filter(Boolean).join(' — ');
+      const label = details || `Pengalaman Organisasi ${index + 1}`;
+      return `
+        <div class="field">
+          <label>${escHtml(label)}</label>
+          <div class="bullet-field">
+            <textarea rows="4" data-inline-organization-index="${index}" placeholder="Tuliskan tanggung jawab dan pencapaian organisasi...">${escHtml(experience.description)}</textarea>
+            <div class="bullet-hint">ℹ️ Isi tanggung jawab atau pencapaian organisasi</div>
+          </div>
         </div>`;
     }).join('');
   });
@@ -307,6 +394,9 @@ function addProfileForm() {
       ['educationDegreeId', 'Gelar / jurusan (Indonesia)'], ['educationDegreeEn', 'Degree / major (English)'], ['educationInstitution', 'Nama kampus'], ['educationLocation', 'Lokasi kampus'], ['educationGpa', 'IPK / GPA'],
     ]],
   ];
+  const supportsOrganizationExperience = Boolean(
+    document.getElementById('tag1') || document.getElementById('skills-container'),
+  );
 
   const editor = document.createElement('div');
   editor.className = 'profile-editor';
@@ -339,12 +429,85 @@ function addProfileForm() {
         <div class="experience-fields"></div>
         <button type="button" class="add-experience-button">+ Tambah Pengalaman Kerja</button>
       </fieldset>
+      ${supportsOrganizationExperience ? `
+        <fieldset class="profile-group">
+          <legend>Pengalaman Organisasi (Opsional)</legend>
+          <p class="profile-editor-hint">Tambahkan bagian ini jika ingin menampilkannya di Resume/CV dan file unduhan.</p>
+          <button type="button" class="add-organization-button">+ Tambah Pengalaman Organisasi</button>
+          <button type="button" class="remove-organization-button">Hapus Pengalaman Organisasi</button>
+          <div class="organization-fields"></div>
+          <button type="button" class="add-organization-entry-button">+ Tambah entri organisasi</button>
+        </fieldset>
+      ` : ''}
     </dialog>
   `;
   panel.prepend(editor);
   const dialog = editor.querySelector('.profile-dialog');
+  const addOrganizationButton = dialog.querySelector('.add-organization-button');
+  const removeOrganizationButton = dialog.querySelector('.remove-organization-button');
+  const addOrganizationEntryButton = dialog.querySelector('.add-organization-entry-button');
+  const updateOrganizationVisibility = () => {
+    const enabled = sharedProfile.organizationExperienceEnabled;
+    document.querySelectorAll('[data-organization-form]').forEach(section => { section.hidden = !enabled; });
+    if (addOrganizationButton) addOrganizationButton.hidden = enabled;
+    if (removeOrganizationButton) removeOrganizationButton.hidden = !enabled;
+    if (addOrganizationEntryButton) addOrganizationEntryButton.hidden = !enabled;
+    const organizationFields = dialog.querySelector('.organization-fields');
+    if (organizationFields) organizationFields.hidden = !enabled;
+  };
+  const syncOrganizationForm = () => {
+    renderOrganizationInputs();
+    updateOrganizationVisibility();
+    updateProfilePreview();
+    syncProfilePage();
+  };
   editor.querySelector('.profile-open-button').addEventListener('click', () => dialog.showModal());
   editor.querySelector('.profile-close-button').addEventListener('click', () => dialog.close());
+  addOrganizationButton?.addEventListener('click', () => {
+    sharedProfile.organizationExperienceEnabled = true;
+    sharedProfile.organizationExperiences = [{ role: '', company: '', location: '', start: '', end: '', description: '' }];
+    persistProfile();
+    renderOrganizationFields();
+    syncOrganizationForm();
+    document.querySelector('[data-inline-organization-index="0"]')?.focus();
+  });
+  removeOrganizationButton?.addEventListener('click', () => {
+    sharedProfile.organizationExperienceEnabled = false;
+    sharedProfile.organizationExperiences = [];
+    persistProfile();
+    syncOrganizationForm();
+  });
+  addOrganizationEntryButton?.addEventListener('click', () => {
+    sharedProfile.organizationExperiences.push({ role: '', company: '', location: '', start: '', end: '', description: '' });
+    persistProfile();
+    renderOrganizationFields();
+    renderOrganizationInputs();
+    updateProfilePreview();
+    syncProfilePage();
+  });
+  updateOrganizationVisibility();
+  panel.addEventListener('input', event => {
+    const textarea = event.target.closest('[data-inline-experience-index]');
+    const organizationTextarea = event.target.closest('[data-inline-organization-index]');
+    if (!textarea && !organizationTextarea) return;
+    autoBullet(textarea || organizationTextarea);
+    const experience = textarea
+      ? sharedProfile.experiences[Number(textarea.dataset.inlineExperienceIndex)]
+      : sharedProfile.organizationExperiences[Number(organizationTextarea.dataset.inlineOrganizationIndex)];
+    if (!experience) return;
+    experience.description = (textarea || organizationTextarea).value.slice(0, 5000);
+    persistProfile();
+    updateProfilePreview();
+    syncProfilePage();
+  });
+  panel.addEventListener('keydown', event => {
+    const textarea = event.target.closest('[data-inline-experience-index], [data-inline-organization-index]');
+    if (!textarea || event.key !== 'Enter') return;
+    event.preventDefault();
+    const position = textarea.selectionStart;
+    textarea.setRangeText('\n• ', position, textarea.selectionEnd, 'end');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   dialog.addEventListener('click', event => {
     if (event.target !== dialog) return;
     const bounds = dialog.getBoundingClientRect();
@@ -379,13 +542,14 @@ function addProfileForm() {
       .experience-date { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
       .experience-description { grid-column: 1 / -1; }
       .experience-description textarea { min-height: 72px; resize: vertical; }
-      .add-experience-button, .remove-experience-button { margin-top: 10px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 7px; background: white; cursor: pointer; }
-      .remove-experience-button { color: #b91c1c; }
+      .add-experience-button, .remove-experience-button, .add-organization-button, .remove-organization-button, .add-organization-entry-button, .remove-organization-entry-button { margin-top: 10px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 7px; background: white; cursor: pointer; }
+      .remove-experience-button, .remove-organization-button, .remove-organization-entry-button { color: #b91c1c; }
     `;
     document.head.appendChild(style);
   }
 
   const experienceFields = dialog.querySelector('.experience-fields');
+  const organizationFields = dialog.querySelector('.organization-fields');
   const educationDates = dialog.querySelector('.education-dates');
   const renderExperienceFields = () => {
     experienceFields.innerHTML = sharedProfile.experiences.map((experience, index) => `
@@ -398,11 +562,25 @@ function addProfileForm() {
           ${[['start','Mulai'],['end','Selesai']].map(([key,label]) => `
             <label>${label}<span class="experience-date">${monthSelect(experience[key], index, key)}${yearSelect(experience[key], index, key)}</span></label>
           `).join('')}
-          <label class="experience-description">Deskripsi / pencapaian
-            <textarea data-experience-field="description">${escHtml(experience.description)}</textarea>
-          </label>
         </div>
         <button type="button" class="remove-experience-button">Hapus pengalaman</button>
+      </div>
+    `).join('');
+  };
+  const renderOrganizationFields = () => {
+    if (!organizationFields) return;
+    organizationFields.innerHTML = sharedProfile.organizationExperiences.map((experience, index) => `
+      <div class="experience-card" data-organization-index="${index}">
+        <h3>Organisasi ${index + 1}</h3>
+        <div class="experience-grid">
+        ${[['role','Jabatan/peran'],['company','Nama organisasi'],['location','Lokasi']].map(([key,label]) => `
+          <label>${label}<input type="text" data-organization-field="${key}" value="${escHtml(experience[key])}"></label>
+        `).join('')}
+          ${[['start','Mulai'],['end','Selesai']].map(([key,label]) => `
+            <label>${label}<span class="experience-date">${monthSelect(experience[key], index, `organization-${key}`)}${yearSelect(experience[key], index, `organization-${key}`)}</span></label>
+          `).join('')}
+        </div>
+        <button type="button" class="remove-organization-entry-button">Hapus entri</button>
       </div>
     `).join('');
   };
@@ -412,14 +590,14 @@ function addProfileForm() {
     const months = language === 'en'
       ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
       : ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-    return `<select aria-label="${key === 'start' ? 'Bulan mulai' : 'Bulan selesai'}" data-date-part="month" data-experience-index="${index}" data-experience-key="${key}">
+    return `<select aria-label="${key.endsWith('start') ? 'Bulan mulai' : 'Bulan selesai'}" data-date-part="month" data-experience-index="${index}" data-experience-key="${key}">
       <option value="">Bulan</option>${months.map((name,i) => `<option value="${String(i + 1).padStart(2,'0')}" ${month === String(i + 1).padStart(2,'0') ? 'selected' : ''}>${name}</option>`).join('')}
     </select>`;
   };
   const yearSelect = (value, index, key) => {
     const year = value.slice(0, 4);
     const currentYear = new Date().getFullYear();
-    return `<select aria-label="${key === 'start' ? 'Tahun mulai' : 'Tahun selesai'}" data-date-part="year" data-experience-index="${index}" data-experience-key="${key}">
+    return `<select aria-label="${key.endsWith('start') ? 'Tahun mulai' : 'Tahun selesai'}" data-date-part="year" data-experience-index="${index}" data-experience-key="${key}">
       <option value="">Tahun</option>${Array.from({length: 81}, (_,i) => currentYear + 10 - i).map(y => `<option value="${y}" ${year === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
     </select>`;
   };
@@ -432,11 +610,16 @@ function addProfileForm() {
     `).join('');
   };
   renderExperienceFields();
+  renderOrganizationFields();
+  renderExperienceInputs();
+  renderOrganizationInputs();
   educationDateFields();
+  syncOrganizationForm();
   dialog.querySelector('.add-experience-button').addEventListener('click', () => {
     sharedProfile.experiences.push({ role: '', company: '', location: '', start: '', end: '', description: '' });
     persistProfile();
     renderExperienceFields();
+    renderExperienceInputs();
     updateProfilePreview();
     syncProfilePage();
   });
@@ -447,6 +630,18 @@ function addProfileForm() {
     sharedProfile.experiences.splice(Number(card.dataset.experienceIndex), 1);
     persistProfile();
     renderExperienceFields();
+    renderExperienceInputs();
+    updateProfilePreview();
+    syncProfilePage();
+  });
+  organizationFields?.addEventListener('click', event => {
+    const button = event.target.closest('.remove-organization-entry-button');
+    if (!button) return;
+    const card = button.closest('[data-organization-index]');
+    sharedProfile.organizationExperiences.splice(Number(card.dataset.organizationIndex), 1);
+    persistProfile();
+    renderOrganizationFields();
+    renderOrganizationInputs();
     updateProfilePreview();
     syncProfilePage();
   });
@@ -454,16 +649,25 @@ function addProfileForm() {
   dialog.addEventListener('input', event => {
     const input = event.target.closest('[data-profile-input]');
     const experienceField = event.target.closest('[data-experience-field]');
-    if (!input && !experienceField) return;
+    const organizationField = event.target.closest('[data-organization-field]');
+    if (!input && !experienceField && !organizationField) return;
     if (input) {
       input.value = input.value.slice(0, 200);
       sharedProfile[input.dataset.profileInput] = input.value.trim();
-    } else {
+    } else if (experienceField) {
       const card = experienceField.closest('[data-experience-index]');
       const experience = sharedProfile.experiences[Number(card.dataset.experienceIndex)];
       experience[experienceField.dataset.experienceField] = experienceField.value.slice(0, 5000).trim();
+    } else {
+      const card = organizationField.closest('[data-organization-index]');
+      const experience = sharedProfile.organizationExperiences[Number(card.dataset.organizationIndex)];
+      experience[organizationField.dataset.organizationField] = organizationField.value.slice(0, 200).trim();
     }
     persistProfile();
+    if (experienceField) renderExperienceInputs();
+    if (organizationField) {
+      renderOrganizationInputs();
+    }
     updateProfilePreview();
     syncProfilePage();
   });
@@ -472,11 +676,15 @@ function addProfileForm() {
     if (!select) return;
     const index = Number(select.dataset.experienceIndex);
     const dateKey = select.dataset.experienceKey;
-    const parent = index < 0 ? educationDates : experienceFields;
+    const organizationDate = dateKey.startsWith('organization-');
+    const fieldKey = organizationDate ? dateKey.slice('organization-'.length) : dateKey;
+    const parent = index < 0 ? educationDates : organizationDate ? organizationFields : experienceFields;
     const month = parent.querySelector(`[data-experience-index="${index}"][data-experience-key="${dateKey}"][data-date-part="month"]`).value;
     const year = parent.querySelector(`[data-experience-index="${index}"][data-experience-key="${dateKey}"][data-date-part="year"]`).value;
     if (index < 0) {
       sharedProfile[dateKey] = month && year ? `${year}-${month}` : '';
+    } else if (organizationDate) {
+      sharedProfile.organizationExperiences[index][fieldKey] = month && year ? `${year}-${month}` : '';
     } else {
       sharedProfile.experiences[index][dateKey] = month && year ? `${year}-${month}` : '';
     }
@@ -496,7 +704,11 @@ function addProfileForm() {
     dialog.querySelectorAll('[data-profile-input]').forEach(input => {
       input.value = sharedProfile[input.dataset.profileInput] || '';
     });
+    syncOrganizationForm();
     renderExperienceFields();
+    renderOrganizationFields();
+    renderExperienceInputs();
+    renderOrganizationInputs();
     educationDateFields();
     updateProfilePreview();
     if (document.getElementById('tag1')) sync();
@@ -702,7 +914,7 @@ function syncResume() {
   const job1        = document.getElementById('job1')?.value || '';
   const job2        = document.getElementById('job2')?.value || '';
   const job3        = document.getElementById('job3')?.value || '';
-  const org1        = document.getElementById('org1')?.value || '';
+  const org1        = getOrganizationExperienceText();
 
   const sl = document.getElementById('prev-subline');
   if (sl) {
@@ -720,7 +932,8 @@ function syncResume() {
   renderBullets('prev-job1', job1);
   renderBullets('prev-job2', job2);
   renderBullets('prev-job3', job3);
-  renderBullets('prev-org1', org1);
+  const organizationPreview = document.querySelector('[data-organization-preview]');
+  if (organizationPreview) organizationPreview.hidden = !getProfile().organizationExperienceEnabled;
   updateSkillsPreview();
 
   setBadge('tag1', tag1);
@@ -729,10 +942,10 @@ function syncResume() {
   setBadge('job1', job1.trim());
   setBadge('job2', job2.trim());
   setBadge('job3', job3.trim());
-  setBadge('org1', org1.trim());
 
-  const anyExperienceFilled = getProfile().experiences.some(experience => experience.description.trim());
-  const anyFilled = tag1 || tag2 || ringkasan || anyExperienceFilled || job3.trim() || org1.trim();
+  const anyExperienceFilled = hasExperienceContent();
+  const anyFilled = tag1 || tag2 || ringkasan || anyExperienceFilled || job3.trim() || org1.trim()
+    || sharedProfile.organizationExperienceEnabled;
   const btn = document.getElementById('btnDownload');
   const btnpdf = document.getElementById('btnDownloadPdf');
   if (btn) btn.disabled = !anyFilled;
@@ -749,6 +962,9 @@ function syncSurat() {
   const institusi  = document.getElementById('institusi')?.value.trim() || '';
   const tanggal    = document.getElementById('tanggal')?.value.trim() || '';
   const perusahaan = document.getElementById('perusahaan')?.value.trim() || '';
+  const letterCity = document.getElementById('letter-city')?.value.trim() || '';
+  const companyCity = document.getElementById('company-city')?.value.trim() || '';
+  const companyCountry = document.getElementById('company-country')?.value.trim() || '';
   const surat      = document.getElementById('surat')?.value.trim() || '';
 
   const prevProgram = document.getElementById('prev-program');
@@ -760,7 +976,14 @@ function syncSurat() {
   const prevTanggal = document.getElementById('prev-tanggal');
   if (prevTanggal) {
     const tanggalTxt = tanggal ? escHtml(tanggal) : '<em class="empty-placeholder">bulan</em>';
-    prevTanggal.innerHTML = `${escHtml(getProfile().location)}, ${tanggalTxt} 2026`;
+    const cityTxt = letterCity ? escHtml(letterCity) : '<em class="empty-placeholder">Kota surat</em>';
+    prevTanggal.innerHTML = `${cityTxt}, ${tanggalTxt} ${escHtml(getProfile().letterYear)}`;
+  }
+
+  const prevCompanyLocation = document.getElementById('prev-company-location');
+  if (prevCompanyLocation) {
+    const companyLocation = [companyCity, companyCountry].filter(Boolean).map(escHtml).join(', ');
+    prevCompanyLocation.innerHTML = companyLocation || '<em class="empty-placeholder">Kota Perusahaan, Negara</em>';
   }
 
   const prevPerusahaan = document.getElementById('prev-perusahaan');
@@ -775,7 +998,7 @@ function syncSurat() {
   setBadge('perusahaan', perusahaan);
   setBadge('surat', surat);
 
-  const anyFilled = tanggal || perusahaan || surat || posisi || namaPerusahaan;
+  const anyFilled = tanggal || letterCity || companyCity || companyCountry || perusahaan || surat || posisi || namaPerusahaan;
   const btn = document.getElementById('btnDownload');
   const btnPdf = document.getElementById('btnDownloadPdf');
   if (btn) btn.disabled = !anyFilled;
@@ -840,7 +1063,7 @@ async function generateDocx() {
     const job1         = document.getElementById('job1')?.value || '';
     const job2         = document.getElementById('job2')?.value || '';
     const job3         = document.getElementById('job3')?.value || '';
-    const org1         = document.getElementById('org1')?.value || '';
+    const org1         = getOrganizationExperienceText();
     const skills       = collectSkills();
 
     const response = await fetchApi('/api/generate-docx', {
@@ -889,12 +1112,15 @@ async function generateLetterDocx() {
     const institusi      = document.getElementById('institusi')?.value.trim() || '';
     const tanggal        = document.getElementById('tanggal')?.value.trim() || '';
     const perusahaan     = document.getElementById('perusahaan')?.value.trim() || '';
+    const letterCity     = document.getElementById('letter-city')?.value.trim() || '';
+    const companyCity    = document.getElementById('company-city')?.value.trim() || '';
+    const companyCountry = document.getElementById('company-country')?.value.trim() || '';
     const surat          = document.getElementById('surat')?.value.trim() || '';
 
     const response = await fetchApi('/api/generate-letter-docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ posisi, namaPerusahaan, program, institusi, tanggal, perusahaan, surat, profile: getProfile() })
+      body: JSON.stringify({ posisi, namaPerusahaan, program, institusi, tanggal, perusahaan, letterCity, companyCity, companyCountry, surat, profile: getProfile() })
     });
 
     const blob = await response.blob();
@@ -934,12 +1160,15 @@ async function generateLetterPdf() {
     const program    = document.getElementById('program')?.value.trim() || '';
     const institusi  = document.getElementById('institusi')?.value.trim() || '';
     const tanggal    = document.getElementById('tanggal')?.value.trim() || '';
+    const letterCity = document.getElementById('letter-city')?.value.trim() || '';
+    const companyCity = document.getElementById('company-city')?.value.trim() || '';
+    const companyCountry = document.getElementById('company-country')?.value.trim() || '';
     const surat      = document.getElementById('surat')?.value.trim() || '';
 
     const response = await fetchApi('/api/generate-letter-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ posisi, perusahaan, program, institusi, tanggal, surat, profile: getProfile() })
+      body: JSON.stringify({ posisi, perusahaan, program, institusi, tanggal, letterCity, companyCity, companyCountry, surat, profile: getProfile() })
     });
 
     const blob = await response.blob();
@@ -980,7 +1209,7 @@ async function generateResumePdf() {
     const job1         = document.getElementById('job1')?.value || '';
     const job2         = document.getElementById('job2')?.value || '';
     const job3         = document.getElementById('job3')?.value || '';
-    const org1         = document.getElementById('org1')?.value || '';
+    const org1         = getOrganizationExperienceText();
     const skills       = collectSkills();
 
     const response = await fetchApi('/api/generate-resume-pdf', {
@@ -1180,7 +1409,7 @@ function syncCV() {
   const job1 = document.getElementById('job1')?.value || '';
   const job2 = document.getElementById('job2')?.value || '';
   const job3 = document.getElementById('job3')?.value || '';
-  const org1 = document.getElementById('org1')?.value || '';
+  const org1 = getOrganizationExperienceText();
 
   const rEl = document.getElementById('prev-ringkasan');
   if (rEl) {
@@ -1190,7 +1419,8 @@ function syncCV() {
   renderBullets('prev-job1', job1);
   renderBullets('prev-job2', job2);
   renderBullets('prev-job3', job3);
-  renderBullets('prev-org1', org1);
+  const organizationPreview = document.querySelector('[data-organization-preview]');
+  if (organizationPreview) organizationPreview.hidden = !getProfile().organizationExperienceEnabled;
   updateProjectsPreview();
   updateSkillsPreviewCV();
 
@@ -1198,10 +1428,10 @@ function syncCV() {
   setBadge('job1', job1.trim());
   setBadge('job2', job2.trim());
   setBadge('job3', job3.trim());
-  setBadge('org1', org1.trim());
 
-  const anyExperienceFilled = getProfile().experiences.some(experience => experience.description.trim());
+  const anyExperienceFilled = hasExperienceContent();
   const anyFilled = ringkasan || anyExperienceFilled || job3.trim() || org1.trim()
+    || sharedProfile.organizationExperienceEnabled
     || collectProjects().length > 0 || collectSkillsCV().length > 0;
   const btn = document.getElementById('btnDownload');
   const btnpdf = document.getElementById('btnDownloadPdf');
@@ -1237,7 +1467,7 @@ async function generateCvDocx() {
     const job1 = document.getElementById('job1')?.value || '';
     const job2 = document.getElementById('job2')?.value || '';
     const job3 = document.getElementById('job3')?.value || '';
-    const org1 = document.getElementById('org1')?.value || '';
+    const org1 = getOrganizationExperienceText();
     const projects = collectProjects();
     const skills = collectSkillsCV();
 
@@ -1286,7 +1516,7 @@ async function generateCvPdf() {
     const job1 = document.getElementById('job1')?.value || '';
     const job2 = document.getElementById('job2')?.value || '';
     const job3 = document.getElementById('job3')?.value || '';
-    const org1 = document.getElementById('org1')?.value || '';
+    const org1 = getOrganizationExperienceText();
     const projects = collectProjects();
     const skills = collectSkillsCV();
 

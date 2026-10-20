@@ -109,6 +109,20 @@ header span {
   margin-bottom: 14px;
 }
 
+.letter-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+}
+
+.letter-fields-grid .letter-field-wide {
+  grid-column: 1 / -1;
+}
+
+.letter-fields-grid .field {
+  margin-bottom: 8px;
+}
+
 .field label {
   display: flex;
   align-items: center;

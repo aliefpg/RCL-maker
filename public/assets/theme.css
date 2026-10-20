@@ -140,8 +140,27 @@ textarea:focus,
 :root[data-theme="dark"] .doc-contact,
 :root[data-theme="dark"] .doc-job-date,
 :root[data-theme="dark"] .doc-job-org,
+:root[data-theme="dark"] .doc-job-location,
+:root[data-theme="dark"] .doc-education-location,
 :root[data-theme="dark"] .doc-letter {
   color: #d8c8a3;
+}
+
+.doc-job-location {
+  color: #777;
+  font-style: italic;
+  font-weight: normal;
+}
+
+.doc-education-location {
+  color: #777;
+  font-style: italic;
+  font-weight: normal;
+}
+
+.doc-job-location-separator,
+.doc-education-location-separator {
+  color: inherit !important;
 }
 
 :root[data-theme="dark"] .doc-divider,
@@ -206,7 +225,11 @@ button:focus-visible,
 }
 
 .add-experience-button,
-.remove-experience-button {
+.remove-experience-button,
+.add-organization-button,
+.remove-organization-button,
+.add-organization-entry-button,
+.remove-organization-entry-button {
   color: var(--app-text);
   background: var(--field-background);
   border-color: var(--app-border);

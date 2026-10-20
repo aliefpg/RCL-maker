@@ -39,13 +39,27 @@
     <div class="section-header">🏢 Nama Perusahaan<span id="badge-nama-perusahaan" class="badge-empty">Kosong</span></div>
     <input type="text" id="nama-perusahaan" placeholder="Masukkan nama perusahaan" style="margin-bottom: 20px;" oninput="sync()"/>
     <div class="section-header">📧 Surat Lamaran</div>
-    <div class="field">
-      <label>Tanggal (bulan) <span id="badge-tanggal" class="badge-empty">Kosong</span></label>
-      <input type="text" id="tanggal" placeholder="cth: Januari 2026" oninput="sync()">
-    </div>
-    <div class="field">
-      <label>Nama Perusahaan <span id="badge-perusahaan" class="badge-empty">Kosong</span></label>
-      <input type="text" id="perusahaan" placeholder="cth: nama perusahaan" oninput="sync()">
+    <div class="letter-fields-grid">
+      <div class="field">
+        <label>Kota surat</label>
+        <input type="text" id="letter-city" placeholder="cth: Jakarta" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Bulan surat <span id="badge-tanggal" class="badge-empty">Kosong</span></label>
+        <input type="text" id="tanggal" placeholder="cth: Januari" oninput="sync()">
+      </div>
+      <div class="field letter-field-wide">
+        <label>Nama Perusahaan <span id="badge-perusahaan" class="badge-empty">Kosong</span></label>
+        <input type="text" id="perusahaan" placeholder="cth: nama perusahaan" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Kota perusahaan</label>
+        <input type="text" id="company-city" placeholder="cth: Jakarta" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Negara perusahaan</label>
+        <input type="text" id="company-country" placeholder="cth: Indonesia" oninput="sync()">
+      </div>
     </div>
     <div class="field">
       <label>Isi surat (pembuka) <span id="badge-surat" class="badge-empty">Kosong</span></label>
@@ -56,7 +70,6 @@
         <div class="bullet-hint">ℹ️ Isi bebas format</div>
       </div>
     </div>
-
     <!-- ✅ Fix: generateLetterDocx() bukan generateDocx() -->
     <button class="btn-download" id="btnDownload" onclick="generateLetterDocx()" disabled>
       ⬇ Download Surat Lamaran .docx
@@ -86,11 +99,11 @@
       </div>
 
       <div class="doc-letter">
-        <div class="doc-letter-date" id="prev-tanggal">Kota, Negara, <em class="empty-placeholder">bulan</em> 2026</div>
+        <div class="doc-letter-date" id="prev-tanggal"><em class="empty-placeholder">Kota surat</em>, <em class="empty-placeholder">bulan</em> 2026</div>
 
         <div class="doc-letter-greeting">Yth.</div>
         <div class="doc-letter-greeting"><b>Tim Rekrutmen <span id="prev-perusahaan"></span></b></div>
-        <div class="doc-letter-greeting">Kota Perusahaan, Negara</div>
+        <div class="doc-letter-greeting" id="prev-company-location"><em class="empty-placeholder">Kota Perusahaan, Negara</em></div>
 
         <div class="doc-letter-opening">Dengan hormat,</div>
 
