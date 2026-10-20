@@ -4,7 +4,6 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const { Image } = require('docx');
 const htmlPdf = require('html-pdf-node');
-const chromium = process.env.VERCEL ? require('@sparticuz/chromium') : null;
 const puppeteerCore = process.env.VERCEL ? require('puppeteer-core') : null;
 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition } = require('docx');
 
@@ -110,6 +109,7 @@ function safeFilenamePart(value) {
 async function generatePdf(file, options) {
   if (!process.env.VERCEL) return htmlPdf.generatePdf(file, options);
 
+  const { default: chromium } = await import('@sparticuz/chromium');
   const browser = await puppeteerCore.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
