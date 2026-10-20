@@ -1,6 +1,6 @@
 # Deploying the application to Vercel
 
-Deploy the frontend and Express API together as one Vercel project. The `api/[...path].js` serverless function forwards API requests to the Express app, and `vercel.json` configures the `/surat` and `/cv` page routes.
+Deploy the frontend and Express API together as one Vercel project. The root HTML/CSS/JS files are served as static assets; `api/[...path].js` forwards API requests to the Express app. `vercel.json` selects Vercel's **Other** framework preset so it does not route static page requests into the Express function, and configures the `/surat` and `/cv` page routes.
 
 The profile editor is available on the Resume, Surat Lamaran, and CV pages. The built-in profile, work, education, and skill values are generic examples; visitors can replace them with their own details. Profile values, including any number of work experiences, are saved in the visitor's browser (`localStorage`) and included whenever a document is generated. Month/year selectors localize month names to the selected document language. Profile changes are shared across pages in the same browser, but are not shared between different devices or browsers.
 
