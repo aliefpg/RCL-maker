@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "api/[...path].js": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/surat",
+      "destination": "/index2.html"
+    },
+    {
+      "source": "/cv",
+      "destination": "/index3.html"
+    }
+  ]
+}

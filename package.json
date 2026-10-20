@@ -13,13 +13,18 @@
   ],
   "author": "Project Contributors",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.17.0"
+  },
   "dependencies": {
+    "@sparticuz/chromium": "^153.0.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
     "express": "^4.18.2",
     "html-pdf-node": "^1.0.8",
-    "libreoffice": "^0.4.5"
+    "libreoffice": "^0.4.5",
+    "puppeteer-core": "^25.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

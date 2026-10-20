@@ -2,14 +2,7 @@
 // SHARED UTILITIES
 // ══════════════════════════════════════════════════════
 function getApiBaseUrl() {
-  const configuredUrl = window.API_BASE_URL?.trim().replace(/\/+$/, '');
-  if (configuredUrl) return configuredUrl;
-
-  if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-    return window.location.origin;
-  }
-
-  throw new Error('URL backend Render belum diatur. Isi API_BASE_URL di api-config.js dengan URL service Render Anda.');
+  return window.location.origin;
 }
 
 async function fetchApi(path, options) {
@@ -17,12 +10,12 @@ async function fetchApi(path, options) {
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, options);
   } catch (error) {
-    throw new Error(`Tidak dapat menghubungi backend. Periksa URL Render dan koneksi internet. ${error.message}`);
+    throw new Error(`Tidak dapat menghubungi API. Periksa koneksi internet dan coba lagi. ${error.message}`);
   }
 
   const contentType = response.headers.get('Content-Type') || '';
   if (contentType.includes('text/html')) {
-    throw new Error('Backend mengembalikan halaman HTML, bukan file. Periksa URL service Render di api-config.js.');
+    throw new Error('Server mengembalikan halaman HTML, bukan file. Pastikan deployment Vercel sudah selesai dan endpoint API tersedia.');
   }
 
   if (!response.ok) {

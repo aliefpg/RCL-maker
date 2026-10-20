@@ -4,6 +4,8 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const { Image } = require('docx');
 const htmlPdf = require('html-pdf-node');
+const chromium = process.env.VERCEL ? require('@sparticuz/chromium') : null;
+const puppeteerCore = process.env.VERCEL ? require('puppeteer-core') : null;
 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition } = require('docx');
 
 const app = express();
@@ -103,6 +105,25 @@ function escapeHtml(value) {
 
 function safeFilenamePart(value) {
   return value.replace(/[^a-z0-9 _-]/gi, '').trim().slice(0, 80) || 'Profil';
+}
+
+async function generatePdf(file, options) {
+  if (!process.env.VERCEL) return htmlPdf.generatePdf(file, options);
+
+  const browser = await puppeteerCore.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(file.content, { waitUntil: 'networkidle0' });
+    return Buffer.from(await page.pdf(options));
+  } finally {
+    await browser.close();
+  }
 }
 
 // Middleware
@@ -523,7 +544,7 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
 
     const file = { content: html };
     const options = { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' } };
-    const pdfBuffer = await htmlPdf.generatePdf(file, options);
+    const pdfBuffer = await generatePdf(file, options);
 
     const posisiClean = (posisi || '').replace(/[^a-zA-Z0-9 ]/g, '').trim();
     const perusahaanClean = (perusahaan || '').replace(/[^a-zA-Z0-9 ]/g, '').trim();
@@ -738,7 +759,7 @@ const options = {
   format: 'A4',
   margin: { top: '19mm', right: '19mm', bottom: '19mm', left: '19mm' }
 };
-    const pdfBuffer = await htmlPdf.generatePdf(file, options);
+    const pdfBuffer = await generatePdf(file, options);
 
     const posisiClean = (posisi || 'Posisi').replace(/[^a-zA-Z0-9 ]/g, '').trim();
     const posisiFormatted = posisiClean.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -1091,7 +1112,7 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       format: 'A4',
       margin: { top: '19mm', right: '19mm', bottom: '19mm', left: '19mm' }
     };
-    const pdfBuffer = await htmlPdf.generatePdf(file, options);
+    const pdfBuffer = await generatePdf(file, options);
 
     const posisiClean = (posisi || 'Posisi').replace(/[^a-zA-Z0-9 ]/g, '').trim();
     const posisiFormatted = posisiClean.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -1121,9 +1142,13 @@ app.get('/cv', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`✓ Server jalan di http://localhost:${PORT}`);
-  console.log(`✓ Resume: http://localhost:${PORT}`);
-  console.log(`✓ Surat: http://localhost:${PORT}/surat`);
-  console.log(`✓ CV: http://localhost:${PORT}/cv`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✓ Server jalan di http://localhost:${PORT}`);
+    console.log(`✓ Resume: http://localhost:${PORT}`);
+    console.log(`✓ Surat: http://localhost:${PORT}/surat`);
+    console.log(`✓ CV: http://localhost:${PORT}/cv`);
+  });
+}
+
+module.exports = app;
