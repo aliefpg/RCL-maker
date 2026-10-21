@@ -9,11 +9,11 @@
   "rewrites": [
     {
       "source": "/surat",
-      "destination": "/index2.html"
+      "destination": "/Cover_Letter.html"
     },
     {
       "source": "/cv",
-      "destination": "/index3.html"
+      "destination": "/CV.html"
     }
   ]
 }

@@ -1260,15 +1260,15 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
 
 // Serve HTML
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'Resume.html'));
 });
 
 app.get('/surat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index2.html'));
+  res.sendFile(path.join(__dirname, 'public', 'Cover_Letter.html'));
 });
 
 app.get('/cv', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index3.html'));
+  res.sendFile(path.join(__dirname, 'public', 'CV.html'));
 });
 
 // Start server
