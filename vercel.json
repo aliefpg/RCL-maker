@@ -8,6 +8,10 @@
   },
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/Resume.html"
+    },
+    {
       "source": "/surat",
       "destination": "/Cover_Letter.html"
     },
