@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surat Lamaran — Nama Anda</title>
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('resumeFillerTheme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch { document.documentElement.dataset.theme = 'light'; }</script>
+  <link rel="stylesheet" href="assets/Cover_Letter.css">
+  <link rel="stylesheet" href="assets/theme.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📄 Surat Lamaran</h1>
+    <span>Isi form kiri → preview langsung → download .docx</span>
+  </div>
+  <div class="header-actions" style="display:flex; gap:8px;">
+    <a href="CV.html" class="nav-btn">📋 CV</a>
+    <a href="Resume.html" class="nav-btn">📄 Resume →</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">🌙 Dark mode</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ═══════════════════ FORM PANEL ═══════════════════ -->
+  <div class="form-panel">
+    <div class="signature-controls" aria-label="Opsi tanda tangan surat lamaran">
+      <strong>Tanda tangan:</strong>
+      <button type="button" id="signature-upload-mode">Pakai tanda tangan gambar</button>
+      <button type="button" id="signature-manual-mode">Tanda tangan manual setelah dicetak</button>
+      <label class="signature-file-label" for="signature-file">Pilih / ganti gambar</label>
+      <input id="signature-file" type="file" accept="image/png,image/jpeg" hidden>
+      <span id="signature-status" role="status"></span>
+    </div>
+    <section class="autofill-card" aria-labelledby="autofill-title">
+      <div class="autofill-title" id="autofill-title">✨ Isi otomatis dari teks surat</div>
+      <p>Tempel seluruh cover letter berbahasa Indonesia atau Inggris. Sistem akan mencoba mendeteksi posisi dan perusahaan, lalu mengisi isi surat tanpa mengubah profil maupun tanda tangan.</p>
+      <textarea id="cover-letter-source" rows="7" placeholder="Tempel seluruh teks cover letter di sini..."></textarea>
+      <button type="button" id="autofill-letter-btn" class="btn-autofill">Isi Form Otomatis</button>
+      <div id="autofill-status" class="autofill-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <div class="section-header">💼 Posisi <span id="badge-posisi" class="badge-empty">Kosong</span></div>
+    <input type="text" id="posisi" placeholder="Masukkan posisi yang dilamar" style="margin-bottom: 10px;" oninput="sync()"/>
+    <div class="section-header">🏢 Nama Perusahaan<span id="badge-nama-perusahaan" class="badge-empty">Kosong</span></div>
+    <input type="text" id="nama-perusahaan" placeholder="Masukkan nama perusahaan" style="margin-bottom: 20px;" oninput="sync()"/>
+    <div class="section-header">📧 Surat Lamaran</div>
+    <div class="field">
+      <label for="letter-language">Bahasa surat</label>
+      <select id="letter-language" onchange="changeLetterLanguage()">
+        <option value="id">Bahasa Indonesia</option>
+        <option value="en">English</option>
+      </select>
+      <div class="bullet-hint">Tulis isi surat sesuai bahasa yang dipilih.</div>
+    </div>
+    <div class="letter-fields-grid">
+      <div class="field">
+        <label>Kota surat</label>
+        <input type="text" id="letter-city" placeholder="cth: Jakarta" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Bulan surat <span id="badge-tanggal" class="badge-empty">Kosong</span></label>
+        <input type="text" id="tanggal" placeholder="cth: Januari" oninput="sync()">
+      </div>
+      <div class="field letter-field-wide">
+        <label>Nama Perusahaan <span id="badge-perusahaan" class="badge-empty">Kosong</span></label>
+        <input type="text" id="perusahaan" placeholder="cth: nama perusahaan" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Kota perusahaan</label>
+        <input type="text" id="company-city" placeholder="cth: Jakarta" oninput="sync()">
+      </div>
+      <div class="field">
+        <label>Negara perusahaan</label>
+        <input type="text" id="company-country" placeholder="cth: Indonesia" oninput="sync()">
+      </div>
+    </div>
+    <div class="field">
+      <label>Isi surat (pembuka) <span id="badge-surat" class="badge-empty">Kosong</span></label>
+      <div class="bullet-field">
+        <textarea id="surat" rows="8"
+          placeholder="Saya tertarik dengan posisi yang Anda tawarkan karena...&#10;&#10;Pengalaman saya dalam..."
+          oninput="sync()"></textarea>
+        <div class="bullet-hint">ℹ️ Isi bebas format</div>
+      </div>
+    </div>
+    <!-- ✅ Fix: generateLetterDocx() bukan generateDocx() -->
+    <button class="btn-download" id="btnDownload" onclick="generateLetterDocx()" disabled>
+      ⬇ Download Surat Lamaran .docx
+    </button>
+    <button class="btn-download btn-pdf" id="btnDownloadPdf" onclick="generateLetterPdf()" disabled>
+      ⬇ Download .pdf
+    </button>
+
+  </div>
+
+  <!-- ═══════════════════ PREVIEW PANEL ═══════════════════ -->
+  <div class="preview-panel">
+    <div class="preview-doc">
+
+      <div class="doc-header">
+        <div class="doc-name" data-profile="name">Nama Anda</div>
+        <div class="doc-education" id="prev-education">
+          <span data-profile="educationDegree" data-profile-lang="id">Nama Jurusan</span>
+          &nbsp;|&nbsp;
+          <span data-profile="educationInstitution">Nama Universitas</span>
+          &nbsp;|&nbsp; GPA <span data-profile="educationGpa">IPK / GPA</span>
+        </div>
+        <div class="doc-contact" data-profile="contact">
+          Nomor Telepon &nbsp;|&nbsp; email@example.com &nbsp;|&nbsp; Kota, Negara
+        </div>
+        <div class="doc-divider"></div>
+      </div>
+
+      <div class="doc-letter">
+        <div class="doc-letter-date" id="prev-tanggal"><em class="empty-placeholder">Kota surat</em>, <em class="empty-placeholder">bulan</em> 2026</div>
+
+        <div class="doc-letter-greeting" id="prev-letter-recipient-prefix">Yth.</div>
+        <div class="doc-letter-greeting"><b><span id="prev-letter-recipient">Tim Rekrutmen</span> <span id="prev-perusahaan"></span></b></div>
+        <div class="doc-letter-greeting" id="prev-company-location"><em class="empty-placeholder">Kota Perusahaan, Negara</em></div>
+
+        <div class="doc-letter-opening" id="prev-letter-opening">Dengan hormat,</div>
+
+        <div class="doc-letter-body" id="prev-surat">
+          <em class="empty-placeholder">Isi surat belum diisi...</em>
+        </div>
+
+       <div class="doc-letter-closing" id="prev-letter-closing">Hormat saya,</div>
+
+        <div class="doc-letter-sign">
+           <div class="signature-space manual" id="prev-signature" aria-label="Ruang tanda tangan manual"></div>
+           <div class="sign-name" data-profile="name">Nama Anda</div>
+          <div class="sign-contact" data-profile="signatureContact">Nomor Telepon &nbsp;|&nbsp; email@example.com</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="assets/script.js"></script>
+
+</body>
+</html>
