@@ -471,7 +471,7 @@ app.post('/api/generate-letter-docx', async (req, res) => {
       }),
       new Paragraph({
         children: [new TextRun({
-          text: `${getEducationDegree(PROFILE, language)} | ${PROFILE.educationInstitution} | GPA ${PROFILE.educationGpa}`,
+          text: `${getEducationDegree(PROFILE, language)} | ${PROFILE.educationInstitution} | ${getGpaLabel(language)}: ${PROFILE.educationGpa}`,
           ...sz(10), font: 'Arial', color: '333333'
         })],
         spacing: { after: 60 }
@@ -633,7 +633,7 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
     </head>
     <body>
       <div class="name">${escapeHtml(PROFILE.name)}</div>
-      <div class="tagline">${escapeHtml(getEducationDegree(PROFILE, language))} | ${escapeHtml(PROFILE.educationInstitution)} | GPA ${escapeHtml(PROFILE.educationGpa)}</div>
+      <div class="tagline">${escapeHtml(getEducationDegree(PROFILE, language))} | ${escapeHtml(PROFILE.educationInstitution)} | ${getGpaLabel(language)}: ${escapeHtml(PROFILE.educationGpa)}</div>
       <div class="contact">${escapeHtml(PROFILE.phone)} | ${escapeHtml(PROFILE.email)} | ${escapeHtml(PROFILE.location)}</div>
       <div class="divider"></div>
 

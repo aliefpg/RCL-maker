@@ -241,10 +241,15 @@ button:focus-visible,
 }
 
 :root[data-theme="dark"] .profile-open-button,
-:root[data-theme="dark"] .profile-close-button {
+:root[data-theme="dark"] .profile-close-button,
+:root[data-theme="dark"] .profile-lock-control {
   color: var(--app-text);
   background: var(--field-background);
   border-color: var(--app-border);
+}
+
+:root[data-theme="dark"] .profile-lock-control small {
+  color: var(--text-secondary);
 }
 
 :root[data-theme="dark"] .profile-group,

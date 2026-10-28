@@ -63,6 +63,7 @@ const PROFILE_DEFAULTS = {
   email: 'email@example.com',
   location: 'Kota, Negara',
   letterYear: '2026',
+  profileLocked: false,
   organizationExperienceEnabled: false,
   organizationExperiences: [],
   experiences: [
@@ -86,6 +87,47 @@ function getProfile() {
   return { ...sharedProfile };
 }
 
+function setAutofilledProfileValue(profile, key, value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const currentValue = profile[key];
+  const fallback = PROFILE_DEFAULTS[key];
+  const isEmpty = typeof currentValue !== 'string'
+    || !currentValue.trim()
+    || (typeof fallback === 'string' && currentValue === fallback);
+  if (profile.profileLocked && !isEmpty) return false;
+  profile[key] = value.trim();
+  return true;
+}
+
+function isEmptyExperience(experience) {
+  return Object.entries(experience).every(([key, value]) => {
+    const fallback = PROFILE_DEFAULTS.experiences[0][key];
+    return !value || value === fallback;
+  });
+}
+
+function mergeAutofilledExperiences(existing, incoming) {
+  const experiences = existing.map(experience => ({ ...experience }));
+  incoming.forEach(experience => {
+    const matchingExperience = experiences.find(current => current.company === experience.company
+      && current.role === experience.role
+      && (!current.start || !experience.start || current.start === experience.start)
+      && (!current.end || !experience.end || current.end === experience.end));
+    if (matchingExperience) {
+      Object.entries(experience).forEach(([key, value]) => {
+        const currentValue = matchingExperience[key];
+        const fallback = PROFILE_DEFAULTS.experiences[0][key];
+        if (value && (!currentValue || currentValue === fallback)) matchingExperience[key] = value;
+      });
+      return;
+    }
+    const emptyIndex = experiences.findIndex(isEmptyExperience);
+    if (emptyIndex >= 0) experiences[emptyIndex] = experience;
+    else if (experiences.length < 6) experiences.push(experience);
+  });
+  return experiences;
+}
+
 function getOrganizationExperienceText() {
   if (!sharedProfile.organizationExperienceEnabled) return '';
   return sharedProfile.organizationExperiences.map(experience => experience.description).filter(Boolean).join('\n');
@@ -96,6 +138,13 @@ function normalizeProfile(input) {
     key,
     typeof input?.[key] === 'string' ? input[key].trim().slice(0, 200) : fallback,
   ]));
+  normalized.profileLocked = input?.profileLocked === true;
+  if (
+    normalized.educationDegreeId === normalized.educationDegreeEn
+    && /\b(?:bachelor|master|associate|doctor(?:ate)?|ph\.?d|b\.?sc|b\.?a|m\.?sc|m\.?a)\b/i.test(normalized.educationDegreeEn)
+  ) {
+    normalized.educationDegreeId = PROFILE_DEFAULTS.educationDegreeId;
+  }
   normalized.organizationExperienceEnabled = input?.organizationExperienceEnabled === true;
   normalized.organizationExperiences = Array.isArray(input?.organizationExperiences)
     ? input.organizationExperiences.filter(item => item && typeof item === 'object').map(item => ({
@@ -157,6 +206,11 @@ function normalizeProfile(input) {
 
 function getDocumentLanguage() {
   return document.getElementById('btn-lang-en')?.classList.contains('active') ? 'en' : 'id';
+}
+
+function getProfileLanguage() {
+  const letterLanguage = document.getElementById('letter-language')?.value;
+  return letterLanguage === 'en' || letterLanguage === 'id' ? letterLanguage : getDocumentLanguage();
 }
 
 const MONTHS = {
@@ -277,10 +331,10 @@ function updateProfilePreview() {
     document.querySelectorAll(`[data-profile="${key}"]`).forEach(el => {
       el.textContent = value;
     });
-    document.querySelectorAll('[data-profile="educationDegree"]').forEach(el => {
-      const lang = el.dataset.profileLang || getDocumentLanguage();
-      el.textContent = lang === 'en' ? profile.educationDegreeEn : profile.educationDegreeId;
-    });
+  });
+  document.querySelectorAll('[data-profile="educationDegree"]').forEach(el => {
+    const lang = getProfileLanguage();
+    el.textContent = lang === 'en' ? profile.educationDegreeEn : profile.educationDegreeId;
   });
   document.querySelectorAll('[data-profile="contact"]').forEach(el => {
     el.textContent = [profile.phone, profile.email, profile.location].filter(Boolean).join(' | ');
@@ -385,6 +439,11 @@ function addProfileForm() {
   } catch (error) {
     console.error('Profil tersimpan tidak dapat dibaca:', error);
   }
+  const navigationType = performance.getEntriesByType('navigation')[0]?.type;
+  if (navigationType === 'reload' && sharedProfile.experiences.some(experience => experience.description)) {
+    sharedProfile.experiences = sharedProfile.experiences.map(experience => ({ ...experience, description: '' }));
+    persistProfile();
+  }
 
   const groups = [
     ['Data Diri', [
@@ -408,6 +467,10 @@ function addProfileForm() {
         <button type="button" class="profile-close-button" aria-label="Tutup">&times;</button>
       </div>
       <p class="profile-editor-hint">Perubahan tersimpan otomatis di browser ini dan dipakai di semua halaman.</p>
+      <label class="profile-lock-control">
+        <input type="checkbox" class="profile-lock-input" ${sharedProfile.profileLocked ? 'checked' : ''}>
+        <span><strong>Kunci profil</strong><small>Saat aktif, autofill hanya mengisi data profil yang masih kosong.</small></span>
+      </label>
       ${groups.map(([title, fields]) => `
         <fieldset class="profile-group">
           <legend>${title}</legend>
@@ -443,6 +506,7 @@ function addProfileForm() {
   `;
   panel.prepend(editor);
   const dialog = editor.querySelector('.profile-dialog');
+  const profileLockInput = dialog.querySelector('.profile-lock-input');
   const addOrganizationButton = dialog.querySelector('.add-organization-button');
   const removeOrganizationButton = dialog.querySelector('.remove-organization-button');
   const addOrganizationEntryButton = dialog.querySelector('.add-organization-entry-button');
@@ -463,6 +527,10 @@ function addProfileForm() {
   };
   editor.querySelector('.profile-open-button').addEventListener('click', () => dialog.showModal());
   editor.querySelector('.profile-close-button').addEventListener('click', () => dialog.close());
+  profileLockInput.addEventListener('change', () => {
+    sharedProfile.profileLocked = profileLockInput.checked;
+    persistProfile();
+  });
   addOrganizationButton?.addEventListener('click', () => {
     sharedProfile.organizationExperienceEnabled = true;
     sharedProfile.organizationExperiences = [{ role: '', company: '', location: '', start: '', end: '', description: '' }];
@@ -529,6 +597,10 @@ function addProfileForm() {
       .profile-dialog-header h2 { margin: 0; font-size: 1.15rem; }
       .profile-close-button { padding: 2px 8px; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 1.8rem; line-height: 1; }
       .profile-editor-hint { margin: 8px 0 14px; color: #64748b; font-size: .85rem; }
+      .profile-lock-control { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 14px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; cursor: pointer; }
+      .profile-lock-control input { margin-top: 3px; }
+      .profile-lock-control span { display: grid; gap: 3px; }
+      .profile-lock-control small { color: #64748b; font-size: .8rem; }
       .profile-group { margin: 12px 0; padding: 10px; border: 1px solid #d8dee8; border-radius: 8px; }
       .profile-group legend { padding: 0 5px; font-weight: 600; font-size: .9rem; }
       .profile-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
@@ -704,6 +776,7 @@ function addProfileForm() {
     dialog.querySelectorAll('[data-profile-input]').forEach(input => {
       input.value = sharedProfile[input.dataset.profileInput] || '';
     });
+    profileLockInput.checked = sharedProfile.profileLocked;
     syncOrganizationForm();
     renderExperienceFields();
     renderOrganizationFields();
@@ -957,6 +1030,8 @@ function syncResume() {
 // ══════════════════════════════════════════════════════
 function syncSurat() {
   const language = document.getElementById('letter-language')?.value === 'en' ? 'en' : 'id';
+  const gpaLabel = document.getElementById('prev-gpa-label');
+  if (gpaLabel) gpaLabel.textContent = language === 'en' ? 'GPA' : 'IPK';
   const posisi     = document.getElementById('posisi')?.value.trim() || '';
   const namaPerusahaan = document.getElementById('nama-perusahaan')?.value.trim() || '';
   const program    = document.getElementById('program')?.value.trim() || '';
@@ -1051,6 +1126,7 @@ function changeLetterLanguage() {
   }
 
   languageField.dataset.previousLanguage = language;
+  updateProfilePreview();
   sync();
 }
 
@@ -1206,6 +1282,26 @@ function parseResumeOrCvText(raw) {
     }
     return cleanLines.slice(startIndex + 1, endIndex).join('\n').trim();
   };
+  const monthNumbers = {
+    jan: '01', january: '01', feb: '02', february: '02', mar: '03', march: '03',
+    apr: '04', april: '04', mei: '05', may: '05', jun: '06', june: '06',
+    jul: '07', july: '07', agu: '08', agustus: '08', aug: '08', august: '08',
+    sep: '09', september: '09', okt: '10', oct: '10', oktober: '10', october: '10',
+    nov: '11', november: '11', des: '12', desember: '12', dec: '12', december: '12',
+  };
+  const parseDateRange = value => {
+    const match = String(value || '').match(/^\s*((?:[A-Za-z]+\s+)?(?:19|20)\d{2})\s*(?:-|–|—|to)\s*((?:(?:[A-Za-z]+\s+)?(?:19|20)\d{2})|Present|Current|Now|Sekarang)\s*$/i);
+    if (!match) return null;
+    const normalizeDate = date => {
+      const dateMatch = date.match(/^([A-Za-z]+)\s+((?:19|20)\d{2})$/);
+      if (dateMatch) {
+        const month = monthNumbers[dateMatch[1].toLowerCase()];
+        return month ? `${dateMatch[2]}-${month}` : date;
+      }
+      return date;
+    };
+    return { start: normalizeDate(match[1]), end: normalizeDate(match[2]) };
+  };
   const candidateName = cleanLines.find(line => /^[A-ZÀ-ÖØ-Þ][A-Za-zÀ-ÖØ-öø-ÿ.'’-]+(?:\s+[A-ZÀ-ÖØ-Þ][A-Za-zÀ-ÖØ-öø-ÿ.'’-]+){1,5}$/.test(line) && line.length < 70) || '';
   const position = (text.match(/(?:target\s+position|position\s+applied|posisi\s+yang\s+dilamar|posisi)\s*[:\-]\s*([^\n]+)/i) || [])[1]?.trim() || '';
   const summary = findSection(['professional summary','summary','profile summary','about me','profil singkat','ringkasan profil','tentang saya','profil'], ['professional experience','professional\s+experience','work experience','experience','employment history','pengalaman kerja','education','pendidikan','skills','skills & achievements','keahlian','keterampilan','languages','bahasa','certifications','sertifikasi','projects','proyek']);
@@ -1213,26 +1309,79 @@ function parseResumeOrCvText(raw) {
   const education = findSection(['education','education background','pendidikan','riwayat pendidikan'], ['skills','skills & achievements','keahlian','professional experience','work experience','experience','pengalaman kerja','projects','proyek','certifications','sertifikasi','languages','bahasa']);
   const experience = findSection(['professional experience','work experience','professional\s+experience','employment history','experience','pengalaman kerja','pengalaman profesional'], ['education','pendidikan','skills','skills & achievements','keahlian','certifications','sertifikasi','projects','proyek','languages','bahasa']);
   const languages = findSection(['languages','language','bahasa'], ['certifications','sertifikasi','projects','proyek','references','referensi']);
-  // Each work entry starts with a line like: Role | Company | City, Country | 2024 - 2025
+  // Support both role-first entries and company/location/date headers with a role on the next line.
   const experienceEntries = [];
   if (experience) {
     const expLines = experience.split('\n');
     let current = null;
-    const headerPattern = /^(.+?)\s*\|\s*(.+?)\s*\|\s*([^|]+?)\s*\|\s*((?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|Present|Sekarang))\s*$/i;
+    const finishEntry = () => {
+      if (!current) return;
+      current.description = current.description.join('\n');
+      experienceEntries.push(current);
+    };
     for (const line of expLines) {
       const plain = line.replace(/^[-•*]\s*/, '').trim();
-      const match = plain.match(headerPattern);
-      if (match) {
-        if (current) experienceEntries.push(current);
-        current = { role: match[1].trim(), company: match[2].trim(), location: match[3].trim(), start: (match[4].match(/(?:19|20)\d{2}/g)||[])[0] || '', end: (match[4].match(/(?:19|20)\d{2}|Present|Sekarang/ig)||[])[1] || '', description: [] };
+      const strictHeader = plain.match(/^(.+?)\s*\|\s*(.+?)\s*\|\s*([^|]+?)\s*\|\s*((?:[A-Za-z]+\s+)?(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:[A-Za-z]+\s+)?(?:19|20)\d{2}|Present|Current|Now|Sekarang))\s*$/i);
+      const companyHeader = plain.match(/^([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*((?:[A-Za-z]+\s+)?(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:[A-Za-z]+\s+)?(?:19|20)\d{2}|Present|Current|Now|Sekarang))\s*$/i);
+      if (strictHeader || companyHeader) {
+        finishEntry();
+        if (strictHeader) {
+          const dates = parseDateRange(strictHeader[4]);
+          current = {
+            role: strictHeader[1].trim(),
+            company: strictHeader[2].trim(),
+            location: strictHeader[3].trim(),
+            ...dates,
+            description: [],
+          };
+        } else {
+          const dates = parseDateRange(companyHeader[3]);
+          current = {
+            role: '',
+            company: companyHeader[1].trim(),
+            location: companyHeader[2].trim(),
+            ...dates,
+            description: [],
+          };
+        }
       } else if (current && plain) {
-        current.description.push(plain);
+        const isBullet = /^[-•*]\s*/.test(line.trim());
+        const roleAndDescription = plain.match(/^(.+?)\s+[–—-]\s+(.+)$/);
+        if (!current.role && roleAndDescription) {
+          current.role = roleAndDescription[1].trim();
+          current.description.push(roleAndDescription[2].trim());
+        } else if (!current.role && !isBullet) {
+          current.role = plain;
+        } else {
+          current.description.push(plain);
+        }
       }
     }
-    if (current) experienceEntries.push(current);
-    experienceEntries.forEach(item => item.description = item.description.join('\n'));
+    finishEntry();
   }
-  const educationMatch = education.match(/([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*((?:19|20)\d{2})\s*(?:-|–|—|to)\s*((?:19|20)\d{2})/i);
+  let educationMatch = education.match(/([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*((?:19|20)\d{2})\s*(?:-|–|—|to)\s*((?:19|20)\d{2})/i);
+  if (!educationMatch && education) {
+    const educationLines = education.split('\n').map(line => line.trim()).filter(Boolean);
+    const educationHeaderIndex = educationLines.findIndex(line => {
+      const parts = line.split('|');
+      return parts.length >= 3 && parseDateRange(parts.slice(2).join('|').trim());
+    });
+    if (educationHeaderIndex >= 0) {
+      const parts = educationLines[educationHeaderIndex].split('|').map(part => part.trim());
+      const dates = parseDateRange(parts.slice(2).join('|').trim());
+      const degreeLine = educationLines.slice(educationHeaderIndex + 1)
+        .find(line => /(?:Bachelor|Master|Associate|Sarjana|Diploma|Degree)/i.test(line));
+      const degree = degreeLine?.split('|')[0].replace(/\bGPA\s*:.*/i, '').trim() || '';
+      educationMatch = [
+        educationLines[educationHeaderIndex],
+        parts[0],
+        degree,
+        parts[1],
+        dates.start,
+        dates.end,
+      ];
+    }
+  }
   const gpaMatch = text.match(/\b(?:GPA|IPK)\s*[:]?\s*([0-4](?:\.\d{1,2})?\s*(?:\/\s*4(?:\.00?)?)?)/i);
   const contactLine = cleanLines.find(line => /@/.test(line) && /\+?\d/.test(line)) || '';
   const email = (contactLine.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
@@ -1274,26 +1423,50 @@ function autoFillResumeOrCv() {
   // Update candidate profile from explicit header details; preserve signature settings.
   const profile = getProfile();
   let profileChanged = false;
-  if (parsed.candidateName) { profile.name = parsed.candidateName; profileChanged = true; }
-  if (parsed.phone) { profile.phone = parsed.phone; profileChanged = true; }
-  if (parsed.email) { profile.email = parsed.email; profileChanged = true; }
-  if (parsed.location) { profile.location = parsed.location; profileChanged = true; }
+  for (const [key, value] of [
+    ['name', parsed.candidateName],
+    ['phone', parsed.phone],
+    ['email', parsed.email],
+    ['location', parsed.location],
+  ]) {
+    if (setAutofilledProfileValue(profile, key, value)) profileChanged = true;
+  }
   if (parsed.educationMatch) {
     const m = parsed.educationMatch;
-    profile.educationInstitution = m[1].trim();
-    profile.educationDegreeId = m[2].trim();
-    profile.educationDegreeEn = m[2].trim();
-    profile.educationLocation = m[3].trim();
-    profile.educationStart = m[4]; profile.educationEnd = m[5];
-    profileChanged = true;
+    const degree = m[2].trim();
+    const isEnglishDegree = /\b(?:bachelor|master|associate|doctor(?:ate)?|ph\.?d|b\.?sc|b\.?a|m\.?sc|m\.?a)\b/i.test(degree);
+    const isIndonesianDegree = /\b(?:sarjana|magister|diploma|doktor|ahli madya|s[1-3])\b/i.test(degree);
+    if (setAutofilledProfileValue(profile, 'educationInstitution', m[1])) profileChanged = true;
+    if (isEnglishDegree) {
+      if (setAutofilledProfileValue(profile, 'educationDegreeEn', degree)) profileChanged = true;
+      if (!profile.profileLocked && profile.educationDegreeId === degree) {
+        profile.educationDegreeId = PROFILE_DEFAULTS.educationDegreeId;
+        profileChanged = true;
+      }
+    } else if (isIndonesianDegree) {
+      if (setAutofilledProfileValue(profile, 'educationDegreeId', degree)) profileChanged = true;
+    } else if (getDocumentLanguage() === 'en') {
+      if (setAutofilledProfileValue(profile, 'educationDegreeEn', degree)) profileChanged = true;
+    } else {
+      if (setAutofilledProfileValue(profile, 'educationDegreeId', degree)) profileChanged = true;
+    }
+    if (setAutofilledProfileValue(profile, 'educationLocation', m[3])) profileChanged = true;
+    if (setAutofilledProfileValue(profile, 'educationStart', m[4])) profileChanged = true;
+    if (setAutofilledProfileValue(profile, 'educationEnd', m[5])) profileChanged = true;
   }
-  if (parsed.gpa) { profile.educationGpa = parsed.gpa; profileChanged = true; }
+  if (setAutofilledProfileValue(profile, 'educationGpa', parsed.gpa)) profileChanged = true;
   if (parsed.experienceEntries?.length) {
-    profile.experiences = parsed.experienceEntries.slice(0, 6).map(entry => ({
+    const importedExperiences = parsed.experienceEntries.slice(0, 6).map(entry => ({
       role: entry.role, company: entry.company, location: entry.location,
       start: entry.start, end: entry.end, description: entry.description
     }));
-    profileChanged = true;
+    const nextExperiences = profile.profileLocked
+      ? mergeAutofilledExperiences(profile.experiences, importedExperiences)
+      : importedExperiences;
+    if (JSON.stringify(nextExperiences) !== JSON.stringify(profile.experiences)) {
+      profile.experiences = nextExperiences;
+      profileChanged = true;
+    }
   }
   if (profileChanged) {
     sharedProfile = { ...sharedProfile, ...profile };
@@ -1322,9 +1495,10 @@ function autoFillResumeOrCv() {
   if (isCV && typeof syncCV === 'function') syncCV(); else if (typeof sync === 'function') sync();
   const filled = [parsed.candidateName, parsed.summary, parsed.experienceEntries?.length, parsed.educationMatch, parsed.skillEntries?.length].filter(Boolean).length;
   status.dataset.state = filled >= 3 ? 'success' : 'warning';
-  status.textContent = filled >= 3
+  status.textContent = (filled >= 3
     ? `Auto-Fill selesai: profil ${parsed.candidateName ? 'terisi' : 'diperiksa'}, ${parsed.experienceEntries?.length || 0} pengalaman kerja, pendidikan ${parsed.educationMatch ? 'terdeteksi' : 'perlu diperiksa'}, dan ${parsed.skillEntries?.length || 0} kategori skills. Periksa preview sebelum mengunduh.`
-    : 'Sebagian teks terbaca, tetapi beberapa bagian belum dikenali. Periksa dan lengkapi field secara manual.';
+    : 'Sebagian teks terbaca, tetapi beberapa bagian belum dikenali. Periksa dan lengkapi field secara manual.')
+    + (profile.profileLocked ? ' Profil terkunci: data yang sudah terisi tidak ditimpa.' : '');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
