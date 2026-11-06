@@ -609,7 +609,11 @@ app.post('/api/generate-letter-pdf', async (req, res) => {
     const suratParagraphs = (surat || '')
       .split('\n')
       .filter(p => p.trim() !== '')
+<<<<<<< HEAD
       .map(p => `<p class="body-text">${escapeHtml(p)}</p>`)
+=======
+      .map(p => `<p class="body-text">${p}</p>`)
+>>>>>>> 45f6b2f9d6d9799d9d39e76c58284d68d13c8008
       .join('');
 
     const html = `
@@ -706,7 +710,11 @@ const L = lang === 'en' ? {
       if (!Array.isArray(skills) || !skills.length) return '<p>[Keahlian belum diisi]</p>';
       return skills
         .filter(s => s.label || s.desc)
+<<<<<<< HEAD
         .map(s => `<p><b>${s.label ? escapeHtml(s.label) + ':' : ''}</b> ${escapeHtml(s.desc || '')}</p>`)
+=======
+        .map(s => `<p><b>${s.label ? s.label + ':' : ''}</b> ${s.desc || ''}</p>`)
+>>>>>>> 45f6b2f9d6d9799d9d39e76c58284d68d13c8008
         .join('');
     };
 
@@ -1108,7 +1116,11 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       if (!Array.isArray(skills) || !skills.length) return '<p>[Keahlian belum diisi]</p>';
       return skills
         .filter(s => s.label || s.desc)
+<<<<<<< HEAD
         .map(s => `<p><b>${s.label ? escapeHtml(s.label) + ':' : ''}</b> ${escapeHtml(s.desc || '')}</p>`)
+=======
+        .map(s => `<p><b>${s.label ? s.label + ':' : ''}</b> ${s.desc || ''}</p>`)
+>>>>>>> 45f6b2f9d6d9799d9d39e76c58284d68d13c8008
         .join('');
     };
 
@@ -1116,7 +1128,11 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       if (!Array.isArray(projects) || !projects.length) return '<ul><li>[Belum ada project]</li></ul>';
       const items = projects
         .filter(p => p.name || p.desc)
+<<<<<<< HEAD
         .map(p => `<li><b>${escapeHtml(p.name || '[isi]')}${p.year ? ' (' + escapeHtml(p.year) + ')' : ''}</b>${p.desc ? ' — ' + escapeHtml(p.desc) : ''}</li>`)
+=======
+        .map(p => `<li><b>${p.name || '[isi]'}${p.year ? ' (' + p.year + ')' : ''}</b>${p.desc ? ' — ' + p.desc : ''}</li>`)
+>>>>>>> 45f6b2f9d6d9799d9d39e76c58284d68d13c8008
         .join('');
       return `<ul>${items}</ul>`;
     };
