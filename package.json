@@ -24,7 +24,11 @@
     "express": "^4.18.2",
     "html-pdf-node": "^1.0.8",
     "libreoffice": "^0.4.5",
-    "puppeteer-core": "^25.15.0"
+    "puppeteer-core": "^25.15.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^16.4.7",
+    "express-rate-limit": "^7.5.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

@@ -23,5 +23,5 @@
       "destination": "/CV.html"
     }
   ],
-  "installCommand": "npm install && npm --prefix mcp-server install"
+  "installCommand": "npm install"
 }
