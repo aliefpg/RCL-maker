@@ -4,12 +4,9 @@
   "functions": {
     "api/[...path].js": {
       "maxDuration": 60
-<<<<<<< HEAD
     },
     "api/mcp.js": {
       "maxDuration": 60
-=======
->>>>>>> 45f6b2f9d6d9799d9d39e76c58284d68d13c8008
     }
   },
   "rewrites": [
@@ -25,10 +22,6 @@
       "source": "/cv",
       "destination": "/CV.html"
     }
-<<<<<<< HEAD
   ],
   "installCommand": "npm install && npm --prefix mcp-server install"
-=======
-  ]
->>>>>>> 45f6b2f9d6d9799d9d39e76c58284d68d13c8008
 }
