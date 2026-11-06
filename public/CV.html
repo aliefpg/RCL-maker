@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CV Filler — Nama Anda</title>
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('resumeFillerTheme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch { document.documentElement.dataset.theme = 'light'; }</script>
+  <link rel="stylesheet" href="assets/Resume.css">
+  <link rel="stylesheet" href="assets/CV.css">
+  <link rel="stylesheet" href="assets/theme.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📄 CV Filler</h1>
+    <span>Isi form kiri → preview langsung → download .docx</span>
+  </div>
+  <div class="header-actions" style="display:flex; gap:8px;">
+    <a href="Resume.html" class="nav-btn">📄 Resume</a>
+    <a href="Cover_Letter.html" class="nav-btn">✉️ Surat Lamaran</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">🌙 Dark mode</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ═══════════════════ FORM PANEL ═══════════════════ -->
+  <div class="form-panel">
+    <section class="autofill-card" aria-labelledby="autofill-document-title">
+      <div class="autofill-title" id="autofill-document-title">✨ Isi otomatis dari teks lengkap</div>
+      <p>Tempel teks Resume/CV. Sistem akan mencoba memetakan nama, posisi, ringkasan, pengalaman, dan keterampilan ke form yang tersedia.</p>
+      <textarea id="document-autofill-source" rows="7" placeholder="Tempel seluruh teks Resume atau CV di sini..."></textarea>
+      <button type="button" id="autofill-document-btn" class="btn-autofill">Isi Form Otomatis</button>
+      <div id="autofill-document-status" class="autofill-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <div class="section-header">💼 Posisi</div>
+    <input type="text" id="posisi" placeholder="Masukkan posisi yang dilamar" oninput="syncCV()" />
+
+    <div class="section-header">🌐 Bahasa Dokumen</div>
+    <div class="field">
+      <label>Pilih Bahasa Output</label>
+      <div class="lang-toggle">
+        <button type="button" id="btn-lang-id" class="lang-btn active" onclick="setLangCV('id')">🇮🇩 Indonesia</button>
+        <button type="button" id="btn-lang-en" class="lang-btn" onclick="setLangCV('en')">🇬🇧 English</button>
+      </div>
+    </div>
+
+    <div class="section-header">👤 Header</div>
+    <div class="field">
+      <label>Ringkasan Profil <span id="badge-ringkasan" class="badge-empty">Kosong</span></label>
+      <div class="bullet-field">
+        <textarea id="ringkasan" rows="5" oninput="syncCV()" placeholder="(isi ringkasan profil sesuai CV Anda)"></textarea>
+        <div class="bullet-hint">ℹ️ Ringkasan bebas format (bukan bullet)</div>
+      </div>
+    </div>
+
+    <div class="section-header">💼 Pengalaman Kerja</div>
+    <div data-work-experience-inputs></div>
+
+    <div data-organization-form hidden>
+      <div class="section-header">🏆 Pengalaman Organisasi</div>
+      <div data-organization-inputs></div>
+    </div>
+
+    <!-- Projects temporarily hidden.
+    <div class="section-header">🛠️ Projects</div>
+    <div id="projects-container"></div>
+    <button class="btn-add-skill" onclick="addProject()">+ Tambah Project</button>
+    -->
+
+    <div class="section-header">🎯 Skills & Achievements</div>
+    <div id="skills-container"></div>
+    <button class="btn-add-skill" onclick="addSkillCV()">+ Tambah Kategori Skill</button>
+
+    <button class="btn-download" id="btnDownload" onclick="generateCvDocx()" disabled>
+      ⬇ Download CV .docx
+    </button>
+    <button class="btn-download btn-pdf" id="btnDownloadPdf" onclick="generateCvPdf()" disabled>
+      ⬇ Download .pdf
+    </button>
+
+  </div>
+
+  <!-- ═══════════════════ PREVIEW PANEL ═══════════════════ -->
+  <div class="preview-panel">
+    <div class="preview-doc">
+
+      <div class="doc-name" data-profile="name">Nama Anda</div>
+      <div class="doc-contact" data-profile="contact">
+        Nomor Telepon &nbsp;|&nbsp; email@example.com &nbsp;|&nbsp; Kota, Negara
+      </div>
+
+      <div id="prev-ringkasan" style="font-size:10pt; line-height:1.15; margin-bottom:8px;"></div>
+
+      <div class="doc-section-title" id="prev-section-workexp">Work Experience</div>
+      <div data-work-experiences></div>
+
+      <div class="doc-section-title" id="prev-section-education">Education</div>
+      <div class="doc-job">
+        <div class="doc-job-row">
+          <span class="doc-job-title"><span data-profile="educationInstitution">Nama Universitas</span><span class="doc-education-location"><span class="doc-education-location-separator"> — </span><span data-profile="educationLocation">Kota, Negara</span></span></span>
+          <span class="doc-job-date" data-profile-range="educationStart|educationEnd"></span>
+        </div>
+        <div class="doc-job-org"><span data-profile="educationDegree">Degree / Major</span> | <span data-grade-label>IPK</span> <span data-profile="educationGpa">IPK / GPA</span></div>
+      </div>
+      <div data-organization-preview hidden>
+        <div class="doc-section-title" id="prev-section-orgexp">Pengalaman Organisasi</div>
+        <div data-organization-experiences></div>
+      </div>
+        <!-- Projects temporarily hidden.
+        <div class="doc-section-title" id="prev-section-projects">Projects</div>
+  <div id="prev-projects"></div>
+        -->
+
+      <div class="doc-section-title" id="prev-section-skills">Skills & Achievements</div>
+      <div class="doc-skills-grid" id="prev-skills"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="assets/script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+/backup
+node_modules/
+.vercel/
+.env
+.env.*
+!.env.example
+mcp-server/.env
+mcp-server/.env.example
