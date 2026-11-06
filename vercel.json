@@ -7,6 +7,12 @@
     },
     "api/mcp.js": {
       "maxDuration": 60
+    },
+    "api/download/[token].js": {
+      "maxDuration": 30
+    },
+    "api/cron/cleanup-rcl-files.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
@@ -23,5 +29,11 @@
       "destination": "/CV.html"
     }
   ],
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-rcl-files",
+      "schedule": "* * * * *"
+    }
+  ]
 }

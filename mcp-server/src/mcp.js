@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { templates, documentTypeSchema, documentDataSchema, validateDocumentData } from './schemas.js';
 import { generateDocument } from './rcl-api.js';
 import { randomUUID } from 'node:crypto';
+import { createTemporaryDownload } from './temp-storage.js';
 
 function textResult(value) {
   return {
@@ -81,28 +82,33 @@ export function createMcpServer({ userId }) {
       .trim()
       .slice(0, 120) || fallback;
 
+    const download = await createTemporaryDownload({
+      buffer: generated.buffer,
+      contentType: generated.contentType,
+      fileName,
+      format,
+    });
+
     return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            documentId,
-            fileName,
-            format,
-            delivery: 'direct',
-            message: 'Dokumen berhasil dibuat dan dilampirkan langsung pada respons ini. Tidak ada penyimpanan file setelah proses selesai.',
-          }, null, 2),
-        },
-        {
-          type: 'resource',
-          resource: {
-            uri: `urn:rcl-maker:${documentType}:${documentId}.${format}`,
-            mimeType: generated.contentType,
-            blob: generated.buffer.toString('base64'),
-          },
-        },
-      ],
+      content: [{
+        type: 'text',
+        text: [
+          `Dokumen ${format.toUpperCase()} berhasil dibuat menggunakan generator RCL Maker.`,
+          `Nama file: ${fileName}`,
+          `Unduh dokumen: [${fileName}](${download.url})`,
+          `Tautan unduhan berlaku ${Math.floor(download.expiresInSeconds / 60)} menit.`,
+          'File disimpan sementara dan akan dibersihkan otomatis setelah masa berlaku berakhir. Tautan tidak dapat digunakan setelah kedaluwarsa.',
+        ].join('\n'),
+      }],
+      structuredContent: {
+        success: true,
+        documentId,
+        fileName,
+        format,
+        delivery: 'temporary-download-link',
+        downloadUrl: download.url,
+        expiresInSeconds: download.expiresInSeconds,
+      },
     };
   }
 
@@ -110,7 +116,7 @@ export function createMcpServer({ userId }) {
     'generate_pdf',
     {
       title: 'Generate and return a RCL Maker PDF',
-      description: 'Generate a Resume, CV, or Cover Letter PDF using the existing RCL Maker generator and return the PDF file directly in the tool response. No cloud or permanent file storage is used.',
+      description: 'Generate a Resume, CV, or Cover Letter PDF using the existing RCL Maker generator and return a secure temporary download link. The file is automatically cleaned up after approximately five minutes.',
       inputSchema: {
         documentType: documentTypeSchema,
         data: documentDataSchema,
@@ -129,7 +135,7 @@ export function createMcpServer({ userId }) {
     'generate_docx',
     {
       title: 'Generate and return a RCL Maker DOCX',
-      description: 'Generate an editable DOCX using the existing RCL Maker generator and return the DOCX file directly in the tool response. No cloud or permanent file storage is used.',
+      description: 'Generate an editable DOCX using the existing RCL Maker generator and return a secure temporary download link. The file is automatically cleaned up after approximately five minutes.',
       inputSchema: {
         documentType: documentTypeSchema,
         data: documentDataSchema,
