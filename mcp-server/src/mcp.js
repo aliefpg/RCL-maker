@@ -10,6 +10,7 @@ import {
 import { generateDocument } from './rcl-api.js';
 import { randomUUID } from 'node:crypto';
 import { createTemporaryDownload } from './temp-storage.js';
+import { registerProfileTools } from './profile-tools.js';
 
 function textResult(value) {
   return {
@@ -42,6 +43,10 @@ export function createMcpServer({ userId }) {
     name: 'rcl-maker',
     version: '1.0.0',
   });
+
+  // Persistent candidate profile tools. Profile ownership is derived from the
+  // authenticated API key's userId, never from an AI-supplied userId.
+  registerProfileTools(server, { userId });
 
   server.registerTool(
     'list_templates',

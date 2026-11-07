@@ -1,8 +1,8 @@
 {
   "name": "rcl-maker-mcp-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Remote MCP server for RCL Maker CV, Resume, and Cover Letter generation",
+  "description": "Remote MCP server for RCL Maker CV, Resume, Cover Letter, and candidate profiles",
   "type": "module",
   "engines": {
     "node": ">=22.17.0"
@@ -10,10 +10,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "check": "node --check src/index.js && node --check src/mcp.js && node --check src/config.js && node --check src/rcl-api.js"
+    "check": "node --check src/index.js && node --check src/mcp.js && node --check src/config.js && node --check src/rcl-api.js && node --check src/supabase.js && node --check src/profile-service.js && node --check src/profile-tools.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@supabase/supabase-js": "^2.57.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "zod": "^3.24.2",
