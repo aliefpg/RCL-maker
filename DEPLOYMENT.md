@@ -12,3 +12,8 @@ The display theme can be switched between light and dark mode from the header. T
 4. Verify the deployment by opening `https://<your-project>.vercel.app/api/health`; it should return `{"status":"ok"}`. Also test the Resume, Surat Lamaran, and CV downloads.
 
 Vercel's serverless Chromium is used for PDF generation. The project requires Node.js 22.17 or later as configured in `package.json`.
+
+
+## Claude RCL Maker Master Profile
+
+For persistent candidate profiles and candidate-specific signatures managed through Claude/MCP, follow `README-MASTER-PROFILE.md`. This is separate from the existing browser-only `localStorage` profile editor described above. The frontend profile editor has not yet been synchronized with the Supabase Master Profile tables.

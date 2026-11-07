@@ -11,6 +11,7 @@ import { generateDocument } from './rcl-api.js';
 import { randomUUID } from 'node:crypto';
 import { createTemporaryDownload } from './temp-storage.js';
 import { registerProfileTools } from './profile-tools.js';
+import { getActiveProfile, getProfile, getProfileSignatureDataUrl, listProfiles } from './profile-service.js';
 
 function textResult(value) {
   return {
@@ -46,7 +47,32 @@ export function createMcpServer({ userId }) {
 
   // Persistent candidate profile tools. Profile ownership is derived from the
   // authenticated API key's userId, never from an AI-supplied userId.
+
   registerProfileTools(server, { userId });
+
+  server.registerTool(
+    'get_system_status',
+    {
+      title: 'Get RCL Maker system status',
+      description: 'Check whether the authenticated MCP account can reach Supabase and report the current active profile.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const result = await listProfiles(userId);
+        const active = result.profiles.find((item) => item.active) || null;
+        return textResult({
+          status: 'ok',
+          mcp: 'connected',
+          supabase: 'connected',
+          activeProfile: active ? { id: active.id, name: active.profile_name } : null,
+          profileCount: result.profiles.length,
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
 
   server.registerTool(
     'list_templates',
@@ -116,8 +142,8 @@ export function createMcpServer({ userId }) {
               'companyCity',
               'companyCountry',
               'surat',
-              'profile.signatureMode',
-              'profile.signatureImage (optional PNG/JPEG data URL)',
+              'Signature is stored in the candidate profile and resolved server-side; do not supply signature bytes in document data.',
+              'Signature image is stored privately per candidate profile in Supabase Storage; generation resolves it server-side using profileId or active profile.',
             ];
 
       return textResult({
@@ -130,7 +156,7 @@ export function createMcpServer({ userId }) {
           'Experience descriptions accept either multiline text or an array of bullet strings.',
           'Preserve every supplied experience bullet. Do not silently remove or summarize bullet points.',
           'The cover-letter signature image is optional.',
-          'For an uploaded cover-letter signature, set profile.signatureMode to upload and provide profile.signatureImage as a valid PNG/JPEG Base64 data URL.',
+          'Do not pass or reuse profile.signatureImage during generation. The MCP server loads the signature belonging to the selected candidate profile.',
           'Signature fields are only used for Cover Letter.',
         ],
       });
@@ -141,8 +167,27 @@ export function createMcpServer({ userId }) {
     documentType,
     format,
     data,
+    profileId,
   }) {
     const validated = validateDocumentData(documentType, data);
+
+    // Cover-letter signatures are always resolved from the authenticated,
+    // selected candidate profile in Supabase. Never trust a signature image
+    // supplied in the generation payload: that could belong to another person.
+    if (documentType === 'cover_letter') {
+      const selectedProfile = profileId
+        ? await getProfile(userId, { profileId })
+        : await getActiveProfile(userId);
+      const storedCandidateName = selectedProfile.profile_data?.profile?.name
+        || selectedProfile.profile_data?.name
+        || '';
+      if (storedCandidateName && validated.profile.name.trim().toLowerCase() !== String(storedCandidateName).trim().toLowerCase()) {
+        throw new Error(`Nama pelamar pada data Cover Letter tidak cocok dengan profil terpilih (${selectedProfile.profile_name}). Periksa profileId/profil yang digunakan agar tanda tangan tidak tertukar.`);
+      }
+      const signatureDataUrl = await getProfileSignatureDataUrl(userId, selectedProfile.id);
+      validated.profile.signatureMode = signatureDataUrl ? 'upload' : 'manual';
+      validated.profile.signatureImage = signatureDataUrl;
+    }
 
     const generated = await generateDocument(
       documentType,
@@ -223,18 +268,20 @@ export function createMcpServer({ userId }) {
     {
       title: 'Generate and return a RCL Maker PDF',
       description:
-        'Generate a Resume, CV, or Cover Letter PDF using the existing RCL Maker generator. Return two temporary links: one PDF preview link that opens inline in a browser and one PDF download link. Both links expire after approximately five minutes.',
+        'Generate a Resume, CV, or Cover Letter PDF using the existing RCL Maker generator. For Cover Letter, optionally supply profileId; if omitted, the server uses the active profile. The signature is loaded privately from that exact candidate profile in Supabase, never from the caller payload. Return temporary preview and download links that expire after approximately five minutes.',
       inputSchema: {
         documentType: documentTypeSchema,
+        profileId: z.string().uuid().optional(),
         data: documentDataSchema,
       },
     },
-    async ({ documentType, data }) => {
+    async ({ documentType, data, profileId }) => {
       try {
         return await generateAndReturn({
           documentType,
           format: 'pdf',
           data,
+          profileId,
         });
       } catch (error) {
         return errorResult(error);
@@ -247,18 +294,20 @@ export function createMcpServer({ userId }) {
     {
       title: 'Generate and return a RCL Maker DOCX',
       description:
-        'Generate an editable DOCX using the existing RCL Maker generator and return a temporary download link. The link expires after approximately five minutes.',
+        'Generate an editable DOCX using the existing RCL Maker generator. For Cover Letter, optionally supply profileId; if omitted, the server uses the active profile. The signature is loaded privately from that exact candidate profile in Supabase, never from the caller payload. Return a temporary download link that expires after approximately five minutes.',
       inputSchema: {
         documentType: documentTypeSchema,
+        profileId: z.string().uuid().optional(),
         data: documentDataSchema,
       },
     },
-    async ({ documentType, data }) => {
+    async ({ documentType, data, profileId }) => {
       try {
         return await generateAndReturn({
           documentType,
           format: 'docx',
           data,
+          profileId,
         });
       } catch (error) {
         return errorResult(error);

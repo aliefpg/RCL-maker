@@ -1,3 +1,4 @@
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { getSupabase } from './supabase.js';
 
 function requireUserId(userId) {
@@ -145,9 +146,19 @@ export async function updateProfile(userIdInput, { profileId, profileName, profi
     throw new Error('Berikan profileName dan/atau profileData yang ingin diperbarui.');
   }
 
+  const existing = await findProfile({ userId, profileId });
   const patch = {};
   if (profileName !== undefined) patch.profile_name = normalizeName(profileName);
-  if (profileData !== undefined) patch.profile_data = normalizeProfileData(profileData);
+  if (profileData !== undefined) {
+    const nextData = normalizeProfileData(profileData);
+    // Preserve signature metadata unless the user explicitly changes it with
+    // set_profile_signature. This prevents ordinary profile edits from
+    // accidentally disconnecting the candidate's stored signature.
+    if (nextData.signature === undefined && existing.profile_data?.signature !== undefined) {
+      nextData.signature = existing.profile_data.signature;
+    }
+    patch.profile_data = nextData;
+  }
 
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -168,6 +179,13 @@ export async function deleteProfile(userIdInput, { profileId, profileName }) {
   const userId = requireUserId(userIdInput);
   const existing = await findProfile({ userId, profileId, profileName });
   const supabase = getSupabase();
+  const signaturePathToDelete = existing.profile_data?.signature?.storagePath;
+  if (signaturePathToDelete) {
+    const { error: signatureDeleteError } = await supabase.storage
+      .from(process.env.SUPABASE_SIGNATURE_BUCKET || 'profile-signatures')
+      .remove([signaturePathToDelete]);
+    if (signatureDeleteError) throw new Error(`Gagal menghapus file tanda tangan profil: ${signatureDeleteError.message}`);
+  }
 
   const { error } = await supabase
     .from('candidate_profiles')
@@ -191,4 +209,171 @@ export async function setActiveProfile(userIdInput, { profileId, profileName }) 
 
   if (error) throw new Error(`Gagal mengganti profil aktif: ${error.message}`);
   return { success: true, activeProfileId: profile.id, activeProfileName: profile.profile_name };
+}
+
+
+const SIGNATURE_BUCKET = process.env.SUPABASE_SIGNATURE_BUCKET || 'profile-signatures';
+const MAX_SIGNATURE_BYTES = 512 * 1024;
+
+function parseSignatureDataUrl(value) {
+  const match = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(value || ''));
+  if (!match) throw new Error('signatureDataUrl harus berupa Data URL PNG atau JPEG yang valid.');
+  const mimeSubtype = match[1];
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length || buffer.length > MAX_SIGNATURE_BYTES) {
+    throw new Error('Ukuran tanda tangan harus lebih dari 0 dan maksimal 512 KB.');
+  }
+  const isPng = mimeSubtype === 'png'
+    && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  const isJpeg = mimeSubtype === 'jpeg'
+    && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[buffer.length - 2] === 0xff && buffer[buffer.length - 1] === 0xd9;
+  if (!isPng && !isJpeg) throw new Error('Isi file tidak cocok dengan format PNG/JPEG yang dinyatakan.');
+  return { buffer, contentType: `image/${mimeSubtype}`, extension: mimeSubtype === 'jpeg' ? 'jpg' : 'png' };
+}
+
+function signaturePath(userId, profileId) {
+  return `${encodeURIComponent(userId)}/${profileId}/signature`;
+}
+
+export async function setProfileSignature(userIdInput, {
+  profileId,
+  profileName,
+  mode,
+  signatureDataUrl,
+}) {
+  const userId = requireUserId(userIdInput);
+  const profile = profileId || profileName
+    ? await findProfile({ userId, profileId, profileName })
+    : await getActiveProfile(userId);
+  const supabase = getSupabase();
+  const nextData = { ...(profile.profile_data || {}) };
+  const oldPath = nextData.signature?.storagePath;
+
+  if (mode === 'manual') {
+    if (oldPath) {
+      const { error: removeError } = await supabase.storage.from(SIGNATURE_BUCKET).remove([oldPath]);
+      if (removeError) throw new Error(`Gagal menghapus tanda tangan lama: ${removeError.message}`);
+    }
+    nextData.signature = { mode: 'manual' };
+  } else if (mode === 'upload') {
+    const { buffer, contentType, extension } = parseSignatureDataUrl(signatureDataUrl);
+    const path = `${encodeURIComponent(userId)}/${profile.id}/signature-${randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from(SIGNATURE_BUCKET).upload(path, buffer, {
+      contentType,
+      cacheControl: '3600',
+      upsert: true,
+    });
+    if (uploadError) throw new Error(`Gagal mengunggah tanda tangan: ${uploadError.message}`);
+    nextData.signature = {
+      mode: 'upload',
+      storagePath: path,
+      contentType,
+      extension,
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    throw new Error('mode harus bernilai "upload" atau "manual".');
+  }
+
+  const { data, error } = await supabase
+    .from('candidate_profiles')
+    .update({ profile_data: nextData })
+    .eq('user_id', userId)
+    .eq('id', profile.id)
+    .select('id, profile_name, profile_data, updated_at')
+    .single();
+
+  if (error) {
+    if (mode === 'upload') {
+      await supabase.storage.from(SIGNATURE_BUCKET).remove([nextData.signature?.storagePath]).catch(() => {});
+    }
+    throw new Error(`Gagal memperbarui metadata tanda tangan profil: ${error.message}`);
+  }
+  if (mode === 'upload' && oldPath && oldPath !== nextData.signature?.storagePath) {
+    await supabase.storage.from(SIGNATURE_BUCKET).remove([oldPath]).catch(() => {});
+  }
+  return {
+    success: true,
+    profileId: data.id,
+    profileName: data.profile_name,
+    signatureMode: data.profile_data.signature?.mode || 'manual',
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function getProfileSignatureStatus(userIdInput, selector = {}) {
+  const userId = requireUserId(userIdInput);
+  const profile = selector.profileId || selector.profileName
+    ? await findProfile({ userId, ...selector })
+    : await getActiveProfile(userId);
+  const signature = profile.profile_data?.signature || { mode: 'manual' };
+  return {
+    profileId: profile.id,
+    profileName: profile.profile_name,
+    signatureMode: signature.mode === 'upload' && signature.storagePath ? 'upload' : 'manual',
+    contentType: signature.contentType || null,
+    updatedAt: signature.updatedAt || null,
+  };
+}
+
+export async function getProfileSignatureDataUrl(userIdInput, profileId) {
+  const userId = requireUserId(userIdInput);
+  const profile = await findProfile({ userId, profileId });
+  const signature = profile.profile_data?.signature;
+  if (signature?.mode !== 'upload' || !signature.storagePath) return '';
+
+  const { data, error } = await getSupabase().storage
+    .from(SIGNATURE_BUCKET)
+    .download(signature.storagePath);
+  if (error || !data) {
+    throw new Error(`Gagal mengambil tanda tangan profil ${profile.profile_name}: ${error?.message || 'file tidak ditemukan'}`);
+  }
+  const buffer = Buffer.from(await data.arrayBuffer());
+  if (!buffer.length || buffer.length > MAX_SIGNATURE_BYTES) {
+    throw new Error('File tanda tangan di Storage tidak valid atau melebihi 512 KB.');
+  }
+  return `data:${signature.contentType || 'image/png'};base64,${buffer.toString('base64')}`;
+}
+
+
+const SIGNATURE_UPLOAD_TTL_MINUTES = 15;
+
+export async function createSignatureUploadLink(userIdInput, selector = {}) {
+  const userId = requireUserId(userIdInput);
+  const profile = selector.profileId || selector.profileName
+    ? await findProfile({ userId, ...selector })
+    : await getActiveProfile(userId);
+
+  const existingSignature = profile.profile_data?.signature;
+  const baseUrl = String(process.env.RCL_API_BASE_URL || '').replace(/\/+$/, '');
+  if (!baseUrl) {
+    throw new Error('RCL_API_BASE_URL belum dikonfigurasi untuk membuat halaman upload TTD.');
+  }
+
+  const token = randomBytes(32).toString('base64url');
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + SIGNATURE_UPLOAD_TTL_MINUTES * 60_000).toISOString();
+
+  const { error } = await getSupabase()
+    .from('signature_upload_tokens')
+    .insert({
+      token_hash: tokenHash,
+      user_id: userId,
+      profile_id: profile.id,
+      expires_at: expiresAt,
+    });
+
+  if (error) throw new Error(`Gagal membuat tautan upload TTD: ${error.message}`);
+
+  return {
+    success: true,
+    profileId: profile.id,
+    profileName: profile.profile_name,
+    hasExistingSignature: existingSignature?.mode === 'upload' && Boolean(existingSignature.storagePath),
+    uploadUrl: `${baseUrl}/signature-upload.html?token=${encodeURIComponent(token)}`,
+    expiresInMinutes: SIGNATURE_UPLOAD_TTL_MINUTES,
+    acceptedTypes: ['image/png', 'image/jpeg'],
+    maxSizeBytes: MAX_SIGNATURE_BYTES,
+    note: 'Buka tautan ini dari HP atau desktop, pilih file tanda tangan, lalu tekan Upload. Setelah berhasil, kembali ke Claude dan jalankan /cek-ttd.',
+  };
 }

@@ -7,6 +7,9 @@ import {
   updateProfile,
   deleteProfile,
   setActiveProfile,
+  setProfileSignature,
+  getProfileSignatureStatus,
+  createSignatureUploadLink,
 } from './profile-service.js';
 
 function result(value) {
@@ -88,4 +91,26 @@ export function registerProfileTools(server, { userId }) {
     description: 'Persistently switch the authenticated account active profile. Supply profileId or exact profileName. The selection is shared by future Claude chats using the same MCP account.',
     inputSchema: profileSelector,
   }, async (input) => setActiveProfile(userId, input));
+
+  register(server, 'set_profile_signature', {
+    title: 'Set candidate profile signature',
+    description: 'Save or remove the signature image belonging only to one candidate profile. For upload, provide a PNG/JPEG data URL no larger than 512 KB. For manual mode, the stored signature image is deleted and the cover letter will leave a blank signing area. Never reuse another candidate signature.',
+    inputSchema: {
+      ...profileSelector,
+      mode: z.enum(['upload', 'manual']),
+      signatureDataUrl: z.string().max(700000).optional(),
+    },
+  }, async (input) => setProfileSignature(userId, input));
+
+  register(server, 'get_profile_signature', {
+    title: 'Get candidate profile signature status',
+    description: 'Return whether the selected candidate profile has an uploaded signature or uses manual signing. If no profile selector is supplied, check the active profile. Does not expose the signature image or a public URL.',
+    inputSchema: profileSelector,
+  }, async (input) => getProfileSignatureStatus(userId, input));
+
+  register(server, 'create_signature_upload_link', {
+    title: 'Create private signature upload link',
+    description: 'Create a single-use, 15-minute upload page for a PNG/JPEG signature. If no profile selector is supplied, the link targets the active profile. The link is scoped to the authenticated account and exact candidate profile.',
+    inputSchema: profileSelector,
+  }, async (input) => createSignatureUploadLink(userId, input));
 }
