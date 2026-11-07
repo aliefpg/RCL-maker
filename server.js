@@ -787,9 +787,9 @@ body {
 
 /* JOB HEADER */
     .job-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) max-content;
-      column-gap: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
       align-items: start;
       width: 100%;
       font-size: 11pt;
@@ -798,6 +798,8 @@ body {
     }
 
 .job-header > span:first-child {
+      flex: 0 1 55%;
+      max-width: 55%;
       min-width: 0;
       overflow-wrap: anywhere;
       word-break: normal;
@@ -805,6 +807,7 @@ body {
 
 .job-date {
       display: block;
+      flex-shrink: 0;
       white-space: nowrap;
       text-align: right;
       font-size: 10pt;
@@ -979,8 +982,11 @@ ul:last-of-type li:last-child {
   </div>
 
 ${includeOrganizationSection ? `
-
-    $` : ''}
+<div class="section-title">
+    ${L.orgExp}
+  </div>
+  ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
+` : ''}
 
 <div class="section-title">
     ${L.skills}
