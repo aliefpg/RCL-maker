@@ -441,7 +441,7 @@ input[type="text"]:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: start;
-  column-gap: 40px;
+  column-gap: 50px;
 }
 
 [data-work-experiences] .doc-job-title {
