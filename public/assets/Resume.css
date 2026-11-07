@@ -446,15 +446,13 @@ input[type="text"]:focus {
 
 [data-work-experiences] .doc-job-title {
   min-width: 0;
+  max-width: 60%;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 [data-work-experiences] .doc-job-company {
-  display: inline-block;
-  max-width: 55%;
-  vertical-align: baseline;
-  overflow-wrap: anywhere;
+  display: inline;
 }
 
 .doc-job-location-inline {

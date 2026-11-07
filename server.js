@@ -839,14 +839,12 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
+      max-width: 60%;
       overflow-wrap: anywhere;
     }
 
 .work-experiences .job-company {
-      display: inline-block;
-      max-width: 55%;
-      vertical-align: baseline;
-      overflow-wrap: anywhere;
+      display: inline;
     }
 
 .work-experiences .job-location {
@@ -1366,14 +1364,12 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
+      max-width: 60%;
       overflow-wrap: anywhere;
     }
 
 .work-experiences .job-company {
-      display: inline-block;
-      max-width: 55%;
-      vertical-align: baseline;
-      overflow-wrap: anywhere;
+      display: inline;
     }
 
 .work-experiences .job-location {
