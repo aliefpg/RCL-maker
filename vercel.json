@@ -11,6 +11,9 @@
     },
     "api/cron/cleanup-rcl-files.js": {
       "maxDuration": 60
+    },
+    "api/signature-upload/[token].js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
