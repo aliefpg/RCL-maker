@@ -113,7 +113,7 @@
 }
 [data-work-experiences] .doc-job-title {
   min-width: 0;
-  max-width: 60%;
+  max-width: 70%;
   white-space: normal;
   overflow-wrap: anywhere;
 }
