@@ -107,7 +107,7 @@
 /* Work Experience only: reserve the date column and wrap long company/location text. */
 [data-work-experiences] .doc-job-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-columns: minmax(0, 70%) minmax(0, calc(30% - 30px));
   align-items: start;
   column-gap: 30px;
 }
@@ -115,6 +115,9 @@
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+[data-work-experiences] .doc-job-date {
+  text-align: right;
 }
 [data-work-experiences] .doc-job-company {
   display: inline;

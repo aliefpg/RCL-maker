@@ -109,7 +109,7 @@ function isEmptyExperience(experience) {
 }
 
 function normalizeExperienceEnd(experience) {
-  const end = String(experience.end || experience.endDate || '').trim();
+  const end = String(experience.end || '').trim() || String(experience.endDate || '').trim();
   const isCurrent = [experience.current, experience.isCurrent].some(value =>
     value === true || /^(true|yes|current|present|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(String(value || '').trim()));
   if (isCurrent || /^(present|current|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(end)) return 'present';

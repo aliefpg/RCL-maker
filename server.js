@@ -60,9 +60,9 @@ function getProfile(input = {}, requestBody = {}) {
 }
 
 function normalizeExperienceEnd(experience) {
-  const end = String(experience.end || experience.endDate || '').trim();
+  const end = String(experience.end || '').trim() || String(experience.endDate || '').trim();
   const isCurrent = [experience.current, experience.isCurrent].some(value =>
-    value === true || /^(true|yes|current|present|now|ongoing|sekarang)$/i.test(String(value || '').trim()));
+    value === true || /^(true|yes|current|present|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(String(value || '').trim()));
   if (isCurrent) return 'sekarang';
   if (/^(present|current|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(end)) return 'sekarang';
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(end) ? end : '';
@@ -828,7 +828,7 @@ body {
 /* JOB HEADER */
     .job-header {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) max-content;
+      grid-template-columns: minmax(0, 70%) minmax(0, calc(30% - 30px));
       column-gap: 30px;
       align-items: start;
       width: 100%;
@@ -1352,7 +1352,7 @@ body {
 /* JOB HEADER */
     .job-header {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) max-content;
+      grid-template-columns: minmax(0, 70%) minmax(0, calc(30% - 30px));
       column-gap: 30px;
       align-items: start;
       width: 100%;
