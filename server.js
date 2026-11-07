@@ -839,7 +839,6 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
-      max-width: 60%;
       overflow-wrap: anywhere;
     }
 
@@ -848,8 +847,8 @@ body {
     }
 
 .work-experiences .job-location {
-      white-space: nowrap;
-      overflow-wrap: normal;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
 .job-client {
@@ -1364,7 +1363,6 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
-      max-width: 60%;
       overflow-wrap: anywhere;
     }
 
@@ -1373,8 +1371,8 @@ body {
     }
 
 .work-experiences .job-location {
-      white-space: nowrap;
-      overflow-wrap: normal;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
 .job-client {

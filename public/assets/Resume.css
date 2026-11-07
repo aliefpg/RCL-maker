@@ -446,7 +446,6 @@ input[type="text"]:focus {
 
 [data-work-experiences] .doc-job-title {
   min-width: 0;
-  max-width: 60%;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -460,8 +459,8 @@ input[type="text"]:focus {
   font-weight: normal;
   font-style: italic;
   color: #767171;
-  white-space: nowrap;
-  overflow-wrap: normal;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .doc-job-org {
