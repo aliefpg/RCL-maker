@@ -94,7 +94,7 @@
   display: block;
   margin: 2px 0 4px;
   font-size: 10pt;
-  font-style: normal;
+  font-style: italic;
   color: #444;
 }
 .current-job-toggle {
@@ -113,16 +113,14 @@
 }
 [data-work-experiences] .doc-job-title {
   min-width: 0;
+  max-width: 65%;
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 [data-work-experiences] .doc-job-company {
-  display: inline-block;
-  max-width: 55%;
-  vertical-align: top;
-  overflow-wrap: anywhere;
-  word-break: normal;
+  display: inline;
 }
 [data-work-experiences] .doc-job-location-inline {
-  white-space: nowrap;
-  overflow-wrap: normal;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

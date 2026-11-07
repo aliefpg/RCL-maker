@@ -47,7 +47,9 @@ function getProfile(input = {}, requestBody = {}) {
       location: String(item.location || '').slice(0, 200),
       client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
-      end: /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|sekarang)$/i.test(item.end) ? item.end : '',
+      end: item.current === true || item.isCurrent === true
+        ? 'sekarang'
+        : /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|now|ongoing|sekarang)$/i.test(item.end) ? item.end : '',
       description: String(item.description || '').slice(0, 5000),
     }));
   } else {
@@ -72,7 +74,9 @@ function getOrganizationExperiences(value, profile) {
       location: String(item.location || '').slice(0, 200),
       client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
-      end: /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|sekarang)$/i.test(item.end) ? item.end : '',
+      end: item.current === true || item.isCurrent === true
+        ? 'sekarang'
+        : /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|now|ongoing|sekarang)$/i.test(item.end) ? item.end : '',
       description: String(item.description || '').slice(0, 5000),
     }));
   }
@@ -107,7 +111,7 @@ const MONTHS = {
 };
 
 function formatProfileDate(value, lang = 'id') {
-  if (/^(present|current|sekarang)$/i.test(String(value || '').trim())) {
+  if (/^(present|current|now|ongoing|sekarang)$/i.test(String(value || '').trim())) {
     return lang === 'en' ? 'Present' : 'Sekarang';
   }
   const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value || '');
@@ -121,14 +125,26 @@ function profileDateRange(profile, prefix, lang = 'id') {
   return [formatProfileDate(start, lang), formatProfileDate(end, lang)].filter(Boolean).join(' – ');
 }
 
+function getExperienceContent(experience, parseBullets) {
+  const lines = parseBullets(experience.description) || [];
+  const descriptionClients = lines
+    .map(line => /^client\s*:\s*(.+)$/i.exec(line)?.[1]?.trim())
+    .filter(Boolean);
+  return {
+    client: experience.client || descriptionClients.join(', '),
+    bullets: lines.filter(line => !/^client\s*:/i.test(line)),
+  };
+}
+
 function experienceDocxChildren(profile, parseBullets, bulletRenderer, lang) {
   return profile.experiences.flatMap(experience => {
-    const bullets = parseBullets(experience.description) || ['[isi]'];
+    const { client, bullets: parsedBullets } = getExperienceContent(experience, parseBullets);
+    const bullets = parsedBullets.length ? parsedBullets : ['[isi]'];
     const title = experience.company || experience.role || '[Perusahaan]';
     return [
       jobHeader(title, experience.location ? ` — ${experience.location}` : '', profileDateRange(experience, '', lang)),
       jobOrg(experience.role),
-      ...(experience.client ? [jobOrg(`Client: ${experience.client}`)] : []),
+      ...(client ? [jobOrg(`Client: ${client}`)] : []),
       ...bullets.map(bulletRenderer),
     ];
   });
@@ -136,29 +152,33 @@ function experienceDocxChildren(profile, parseBullets, bulletRenderer, lang) {
 
 function organizationExperienceDocxChildren(experiences, parseBullets, bulletRenderer, lang) {
   return experiences.flatMap(experience => {
-    const bullets = parseBullets(experience.description) || ['[isi]'];
+    const { client, bullets: parsedBullets } = getExperienceContent(experience, parseBullets);
+    const bullets = parsedBullets.length ? parsedBullets : ['[isi]'];
     const organization = [experience.company, experience.location].filter(Boolean).join(' — ');
     return [
       jobHeader(experience.role || '[Jabatan/peran]', '', profileDateRange(experience, '', lang)),
       ...(organization ? [jobOrg(organization)] : []),
-      ...(experience.client ? [jobOrg(`Client: ${experience.client}`)] : []),
+      ...(client ? [jobOrg(`Client: ${client}`)] : []),
       ...bullets.map(bulletRenderer),
     ];
   });
 }
 
 function experienceHtml(profile, lang, parseBullets) {
-  return profile.experiences.map(experience => `
+  return profile.experiences.map(experience => {
+    const { client, bullets } = getExperienceContent(experience, parseBullets);
+    return `
     <div class="job-entry">
       <div class="job-header">
         <span><span class="job-company">${escapeHtml(experience.company || experience.role || '[Perusahaan]')}</span>${experience.location ? ` <span class="job-location"><span class="job-location-separator">— </span>${escapeHtml(experience.location)}</span>` : ''}</span>
         <span class="job-date">${escapeHtml(profileDateRange(experience, '', lang))}</span>
       </div>
       <div class="job-org">${escapeHtml(experience.role)}</div>
-      ${experience.client ? `<div class="job-client">Client: ${escapeHtml(experience.client)}</div>` : ''}
-      <ul>${parseBullets(experience.description).map(line => `<li>${escapeHtml(line)}</li>`).join('') || '<li>[isi]</li>'}</ul>
+      ${client ? `<div class="job-client">Client: ${escapeHtml(client)}</div>` : ''}
+      <ul>${bullets.map(line => `<li>${escapeHtml(line)}</li>`).join('') || '<li>[isi]</li>'}</ul>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function organizationExperienceHtml(experiences, lang, parseBullets) {
@@ -780,9 +800,10 @@ body {
     }
 
 .header-contact {
-      font-size: 10pt;
+      font-size: 9pt;
       text-align: center;
       color: #444;
+      white-space: nowrap;
       padding-bottom: 8px;
       border-bottom: 2px solid #1A1A2E;
       margin-bottom: 14px;
@@ -813,23 +834,22 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
+      max-width: 65%;
+      overflow-wrap: anywhere;
     }
 
 .work-experiences .job-company {
-      display: inline-block;
-      max-width: 55%;
-      vertical-align: top;
-      overflow-wrap: anywhere;
-      word-break: normal;
+      display: inline;
     }
 
 .work-experiences .job-location {
-      white-space: nowrap;
-      overflow-wrap: normal;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
 .job-client {
       font-size: 10pt;
+      font-style: italic;
       color: #444;
       margin: 2px 0 4px;
     }
@@ -876,12 +896,16 @@ body {
 
 .edu-row > span:first-child {
       min-width: 0;
-      overflow-wrap: anywhere;
-      word-break: normal;
+      white-space: nowrap;
+      overflow-wrap: normal;
+    }
+
+.edu-institution {
+      font-size: 9pt;
     }
 
 .edu-location {
-      font-size: 10pt;
+      font-size: 9pt;
       font-weight: normal;
       font-style: italic;
       color: #767171;
@@ -986,7 +1010,7 @@ ul:last-of-type li:last-child {
 
 <div class="edu-row">
     <span>
-      ${escapeHtml(PROFILE.educationInstitution)}
+      <span class="edu-institution">${escapeHtml(PROFILE.educationInstitution)}</span>
       <span class="edu-location">
         <span class="edu-location-separator"> — </span>
         ${escapeHtml(PROFILE.educationLocation)}
@@ -1292,9 +1316,10 @@ body {
     }
 
 .header-contact {
-      font-size: 10pt;
+      font-size: 9pt;
       text-align: center;
       color: #444;
+      white-space: nowrap;
       padding-bottom: 8px;
       border-bottom: 2px solid #1A1A2E;
       margin-bottom: 12px;
@@ -1334,23 +1359,22 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
+      max-width: 65%;
+      overflow-wrap: anywhere;
     }
 
 .work-experiences .job-company {
-      display: inline-block;
-      max-width: 55%;
-      vertical-align: top;
-      overflow-wrap: anywhere;
-      word-break: normal;
+      display: inline;
     }
 
 .work-experiences .job-location {
-      white-space: nowrap;
-      overflow-wrap: normal;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
 .job-client {
       font-size: 10pt;
+      font-style: italic;
       color: #444;
       margin: 2px 0 4px;
     }
@@ -1405,18 +1429,18 @@ body {
 
 .edu-row > span:first-child {
       min-width: 0;
-      overflow-wrap: anywhere;
-      word-break: normal;
+      white-space: nowrap;
+      overflow-wrap: normal;
     }
 
 .edu-institution {
       font-weight: bold;
-      font-size: 11pt;
+      font-size: 9pt;
     }
 
 .edu-location {
       font-weight: normal;
-      font-size: 10pt;
+      font-size: 9pt;
       color: #767171;
       font-style: italic;
       white-space: nowrap;
