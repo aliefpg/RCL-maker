@@ -843,12 +843,15 @@ body {
     }
 
 .work-experiences .job-company {
-      display: inline;
+      display: inline-block;
+      max-width: 55%;
+      vertical-align: baseline;
+      overflow-wrap: anywhere;
     }
 
 .work-experiences .job-location {
-      white-space: normal;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow-wrap: normal;
     }
 
 .job-client {
@@ -1367,12 +1370,15 @@ body {
     }
 
 .work-experiences .job-company {
-      display: inline;
+      display: inline-block;
+      max-width: 55%;
+      vertical-align: baseline;
+      overflow-wrap: anywhere;
     }
 
 .work-experiences .job-location {
-      white-space: normal;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow-wrap: normal;
     }
 
 .job-client {
