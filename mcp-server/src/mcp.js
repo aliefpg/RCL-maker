@@ -1,13 +1,24 @@
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { templates, documentTypeSchema, documentDataSchema, validateDocumentData } from './schemas.js';
+import {
+  templates,
+  documentTypeSchema,
+  documentDataSchema,
+  validateDocumentData,
+} from './schemas.js';
 import { generateDocument } from './rcl-api.js';
 import { randomUUID } from 'node:crypto';
 import { createTemporaryDownload } from './temp-storage.js';
 
 function textResult(value) {
   return {
-    content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(value, null, 2),
+      },
+    ],
     structuredContent: value,
   };
 }
@@ -15,7 +26,14 @@ function textResult(value) {
 function errorResult(error) {
   return {
     isError: true,
-    content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }],
+    content: [
+      {
+        type: 'text',
+        text: error instanceof Error
+          ? error.message
+          : String(error),
+      },
+    ],
   };
 }
 
@@ -29,7 +47,8 @@ export function createMcpServer({ userId }) {
     'list_templates',
     {
       title: 'List RCL Maker templates',
-      description: 'List available RCL Maker document types, supported languages, and export formats.',
+      description:
+        'List available RCL Maker document types, supported languages, and export formats.',
       inputSchema: {},
     },
     async () => textResult({ templates }),
@@ -39,7 +58,8 @@ export function createMcpServer({ userId }) {
     'get_document_schema',
     {
       title: 'Get document data schema',
-      description: 'Explain the data fields accepted by RCL Maker for resume, CV, or cover letter generation. Use the exact existing RCL Maker API field names.',
+      description:
+        'Explain the data fields accepted by RCL Maker for resume, CV, or cover letter generation. Use the exact existing RCL Maker API field names.',
       inputSchema: {
         documentType: documentTypeSchema,
       },
@@ -51,11 +71,49 @@ export function createMcpServer({ userId }) {
         'profile.experiences[]: role, company, location, start, end, description',
         'profile.organizationExperienceEnabled, profile.organizationExperiences[]',
       ];
+
       const fields = documentType === 'resume'
-        ? [...common, 'posisi', 'lang: id|en', 'tag1', 'tag2', 'ringkasan', 'job1', 'job2', 'job3', 'org1', 'skills[]: label, desc']
+        ? [
+            ...common,
+            'posisi',
+            'lang: id|en',
+            'tag1',
+            'tag2',
+            'ringkasan',
+            'job1',
+            'job2',
+            'job3',
+            'org1',
+            'skills[]: label, desc',
+          ]
         : documentType === 'cv'
-          ? [...common, 'posisi', 'lang: id|en', 'ringkasan', 'job1', 'job2', 'job3', 'org1', 'projects[]: name, year, desc', 'skills[]: label, desc']
-          : [...common, 'posisi', 'language: id|en', 'perusahaan', 'program', 'institusi', 'tanggal', 'letterCity', 'companyCity', 'companyCountry', 'surat', 'profile.signatureMode', 'profile.signatureImage (optional PNG/JPEG data URL)'];
+          ? [
+              ...common,
+              'posisi',
+              'lang: id|en',
+              'ringkasan',
+              'job1',
+              'job2',
+              'job3',
+              'org1',
+              'projects[]: name, year, desc',
+              'skills[]: label, desc',
+            ]
+          : [
+              ...common,
+              'posisi',
+              'language: id|en',
+              'perusahaan',
+              'program',
+              'institusi',
+              'tanggal',
+              'letterCity',
+              'companyCity',
+              'companyCountry',
+              'surat',
+              'profile.signatureMode',
+              'profile.signatureImage (optional PNG/JPEG data URL)',
+            ];
 
       return textResult({
         documentType,
@@ -64,52 +122,94 @@ export function createMcpServer({ userId }) {
           'Do not invent personal history, employers, dates, degrees, certifications, or measurable achievements.',
           'Use empty strings for unknown optional values.',
           'For experience dates, use YYYY-MM.',
-          'The cover-letter signature image is optional; if signatureMode is upload, signatureImage must be a valid PNG/JPEG data URL.',
+          'Experience descriptions accept either multiline text or an array of bullet strings.',
+          'Preserve every supplied experience bullet. Do not silently remove or summarize bullet points.',
+          'The cover-letter signature image is optional.',
+          'For an uploaded cover-letter signature, set profile.signatureMode to upload and provide profile.signatureImage as a valid PNG/JPEG Base64 data URL.',
+          'Signature fields are only used for Cover Letter.',
         ],
       });
     },
   );
 
-  async function generateAndReturn({ documentType, format, data }) {
+  async function generateAndReturn({
+    documentType,
+    format,
+    data,
+  }) {
     const validated = validateDocumentData(documentType, data);
-    const generated = await generateDocument(documentType, format, validated);
+
+    const generated = await generateDocument(
+      documentType,
+      format,
+      validated,
+    );
+
     const documentId = randomUUID();
-    const fallback = `RCL-Maker-${documentType}-${documentId}.${format}`;
-    const match = /filename="?([^";]+)"?/i.exec(generated.contentDisposition || '');
+
+    const fallback =
+      `RCL-Maker-${documentType}-${documentId}.${format}`;
+
+    const match = /filename="?([^";]+)"?/i.exec(
+      generated.contentDisposition || '',
+    );
+
     const fileName = String(match?.[1] || fallback)
       .replace(/[/\\?%*:|"<>]/g, '')
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 120) || fallback;
 
-    const download = await createTemporaryDownload({
-  buffer: generated.buffer,
-  contentType: generated.contentType,
-  fileName,
-  format,
-  userId,
-});
+    const temporary = await createTemporaryDownload({
+      buffer: generated.buffer,
+      contentType: generated.contentType,
+      fileName,
+      format,
+      userId,
+    });
+
+    const expiresMinutes = Math.floor(
+      temporary.expiresInSeconds / 60,
+    );
+
+    const messages = [
+      `Dokumen ${format.toUpperCase()} berhasil dibuat menggunakan generator RCL Maker.`,
+      `Nama file: ${fileName}`,
+    ];
+
+    if (format === 'pdf' && temporary.previewUrl) {
+      messages.push(
+        `Preview PDF: [Buka Preview PDF](${temporary.previewUrl})`,
+      );
+    }
+
+    messages.push(
+      `Download file: [Download ${format.toUpperCase()}](${temporary.downloadUrl})`,
+      `Tautan berlaku ${expiresMinutes} menit.`,
+      'File disimpan sementara dan akan dibersihkan otomatis setelah masa berlaku berakhir.',
+    );
 
     return {
-      content: [{
-        type: 'text',
-        text: [
-          `Dokumen ${format.toUpperCase()} berhasil dibuat menggunakan generator RCL Maker.`,
-          `Nama file: ${fileName}`,
-          `Unduh dokumen: [${fileName}](${download.url})`,
-          `Tautan unduhan berlaku ${Math.floor(download.expiresInSeconds / 60)} menit.`,
-          'File disimpan sementara dan akan dibersihkan otomatis setelah masa berlaku berakhir. Tautan tidak dapat digunakan setelah kedaluwarsa.',
-        ].join('\n'),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: messages.join('\n'),
+        },
+      ],
       structuredContent: {
-  success: true,
-  documentId: download.documentId,
-  fileName,
-  format,
-  delivery: 'temporary-download-link',
-  downloadUrl: download.url,
-  expiresInSeconds: download.expiresInSeconds,
-},
+        success: true,
+        documentId: temporary.documentId,
+        fileName,
+        format,
+        delivery: format === 'pdf'
+          ? 'temporary-preview-and-download'
+          : 'temporary-download',
+        ...(format === 'pdf'
+          ? { previewUrl: temporary.previewUrl }
+          : {}),
+        downloadUrl: temporary.downloadUrl,
+        expiresInSeconds: temporary.expiresInSeconds,
+      },
     };
   }
 
@@ -117,7 +217,8 @@ export function createMcpServer({ userId }) {
     'generate_pdf',
     {
       title: 'Generate and return a RCL Maker PDF',
-      description: 'Generate a Resume, CV, or Cover Letter PDF using the existing RCL Maker generator and return a secure temporary download link. The file is automatically cleaned up after approximately five minutes.',
+      description:
+        'Generate a Resume, CV, or Cover Letter PDF using the existing RCL Maker generator. Return two temporary links: one PDF preview link that opens inline in a browser and one PDF download link. Both links expire after approximately five minutes.',
       inputSchema: {
         documentType: documentTypeSchema,
         data: documentDataSchema,
@@ -125,7 +226,11 @@ export function createMcpServer({ userId }) {
     },
     async ({ documentType, data }) => {
       try {
-        return await generateAndReturn({ documentType, format: 'pdf', data });
+        return await generateAndReturn({
+          documentType,
+          format: 'pdf',
+          data,
+        });
       } catch (error) {
         return errorResult(error);
       }
@@ -136,7 +241,8 @@ export function createMcpServer({ userId }) {
     'generate_docx',
     {
       title: 'Generate and return a RCL Maker DOCX',
-      description: 'Generate an editable DOCX using the existing RCL Maker generator and return a secure temporary download link. The file is automatically cleaned up after approximately five minutes.',
+      description:
+        'Generate an editable DOCX using the existing RCL Maker generator and return a temporary download link. The link expires after approximately five minutes.',
       inputSchema: {
         documentType: documentTypeSchema,
         data: documentDataSchema,
@@ -144,7 +250,11 @@ export function createMcpServer({ userId }) {
     },
     async ({ documentType, data }) => {
       try {
-        return await generateAndReturn({ documentType, format: 'docx', data });
+        return await generateAndReturn({
+          documentType,
+          format: 'docx',
+          data,
+        });
       } catch (error) {
         return errorResult(error);
       }

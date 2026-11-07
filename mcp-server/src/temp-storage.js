@@ -7,9 +7,11 @@ const TTL_MS = TTL_SECONDS * 1000;
 
 function requiredEnv(name) {
   const value = process.env[name];
+
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
+
   return value;
 }
 
@@ -17,16 +19,25 @@ let supabaseClient;
 
 function getSupabase() {
   if (!supabaseClient) {
-    supabaseClient = createClient(
-      requiredEnv('SUPABASE_URL'),
-      requiredEnv('SUPABASE_SECRET_KEY'),
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
+    const supabaseUrl = requiredEnv('SUPABASE_URL');
+
+    // Mendukung kedua nama environment variable.
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SECRET_KEY;
+
+    if (!supabaseKey) {
+      throw new Error(
+        'Missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY',
+      );
+    }
+
+    supabaseClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
       },
-    );
+    });
   }
 
   return supabaseClient;
@@ -47,7 +58,6 @@ export async function createTemporaryDownload({
   const now = Date.now();
   const expiresAt = new Date(now + TTL_MS).toISOString();
 
-  // Bersihkan dokumen lama saat ada dokumen baru dibuat.
   try {
     await cleanupExpiredDocuments();
   } catch (error) {
@@ -65,7 +75,9 @@ export async function createTemporaryDownload({
     });
 
   if (upload.error) {
-    throw new Error(`Supabase Storage upload failed: ${upload.error.message}`);
+    throw new Error(
+      `Supabase Storage upload failed: ${upload.error.message}`,
+    );
   }
 
   try {
@@ -84,29 +96,63 @@ export async function createTemporaryDownload({
       .single();
 
     if (insertError) {
-      throw new Error(`Supabase metadata insert failed: ${insertError.message}`);
+      throw new Error(
+        `Supabase metadata insert failed: ${insertError.message}`,
+      );
     }
 
-    const { data: signed, error: signedError } = await supabase.storage
+    // URL download: memaksa browser mengunduh file.
+    const {
+      data: downloadSigned,
+      error: downloadError,
+    } = await supabase.storage
       .from(getBucket())
       .createSignedUrl(filePath, TTL_SECONDS, {
         download: fileName,
       });
 
-    if (signedError || !signed?.signedUrl) {
+    if (downloadError || !downloadSigned?.signedUrl) {
       throw new Error(
-        `Unable to create signed download URL: ${signedError?.message || 'URL missing'}`,
+        `Unable to create download URL: ${
+          downloadError?.message || 'URL missing'
+        }`,
       );
+    }
+
+    // URL preview: tanpa opsi download agar PDF dapat dibuka inline.
+    let previewUrl = null;
+
+    if (format === 'pdf') {
+      const {
+        data: previewSigned,
+        error: previewError,
+      } = await supabase.storage
+        .from(getBucket())
+        .createSignedUrl(filePath, TTL_SECONDS);
+
+      if (previewError || !previewSigned?.signedUrl) {
+        throw new Error(
+          `Unable to create preview URL: ${
+            previewError?.message || 'URL missing'
+          }`,
+        );
+      }
+
+      previewUrl = previewSigned.signedUrl;
     }
 
     return {
       documentId: record.id,
-      url: signed.signedUrl,
+      previewUrl,
+      downloadUrl: downloadSigned.signedUrl,
       expiresInSeconds: TTL_SECONDS,
     };
   } catch (error) {
-    // Jangan tinggalkan file jika metadata atau signed URL gagal dibuat.
-    await supabase.storage.from(getBucket()).remove([filePath]).catch(() => {});
+    await supabase.storage
+      .from(getBucket())
+      .remove([filePath])
+      .catch(() => {});
+
     throw error;
   }
 }
@@ -122,11 +168,16 @@ export async function cleanupExpiredDocuments() {
     .limit(1000);
 
   if (selectError) {
-    throw new Error(`Unable to find expired documents: ${selectError.message}`);
+    throw new Error(
+      `Unable to find expired documents: ${selectError.message}`,
+    );
   }
 
   if (!expired?.length) {
-    return { success: true, deleted: 0 };
+    return {
+      success: true,
+      deleted: 0,
+    };
   }
 
   const paths = expired.map((item) => item.file_path);
@@ -136,7 +187,9 @@ export async function cleanupExpiredDocuments() {
     .remove(paths);
 
   if (storageError) {
-    throw new Error(`Unable to delete expired files: ${storageError.message}`);
+    throw new Error(
+      `Unable to delete expired files: ${storageError.message}`,
+    );
   }
 
   const ids = expired.map((item) => item.id);
@@ -147,7 +200,9 @@ export async function cleanupExpiredDocuments() {
     .in('id', ids);
 
   if (deleteError) {
-    throw new Error(`Unable to delete expired metadata: ${deleteError.message}`);
+    throw new Error(
+      `Unable to delete expired metadata: ${deleteError.message}`,
+    );
   }
 
   return {

@@ -227,21 +227,42 @@ function sectionTitle(text) {
 }
 
 function jobHeader(title, locationStr, dateStr) {
-  const [line1, line2] = title.split('\n');
+  const date = String(dateStr || '').replace(/ /g, '\u00A0');
 
   return new Paragraph({
-    tabStops: [{ type: TabStopType.RIGHT, position: 10080 }],
-    children: line2
-      ? [
-          new TextRun({ text: line1, bold: true, ...sz(11) }),
-          new TextRun({ text: '\t' + dateStr, ...sz(10), color: '555555' }),
-          new TextRun({text: line2, break: 1, bold: true, ...sz(11),}),
-          new TextRun({ text: locationStr, ...sz(10), color: COLOR_GRAY, italics: true,}),
-        ]
-      : [
-          new TextRun({ text: line1, bold: true, ...sz(11) }),
-          new TextRun({ text: locationStr, ...sz(10), color: COLOR_GRAY, italics: true, }),
-          new TextRun({ text: '\t' + dateStr, ...sz(10), color: '555555',}),],spacing: { before: 80, after: 20 },});
+    tabStops: [
+      {
+        type: TabStopType.RIGHT,
+        position: 10080,
+      },
+    ],
+    children: [
+      new TextRun({
+        text: String(title || ''),
+        bold: true,
+        ...sz(11),
+      }),
+      new TextRun({
+        text: locationStr || '',
+        ...sz(10),
+        color: COLOR_GRAY,
+        italics: true,
+      }),
+      ...(date
+        ? [
+            new TextRun({
+              text: '\t' + date,
+              ...sz(10),
+              color: '555555',
+            }),
+          ]
+        : []),
+    ],
+    spacing: {
+      before: 80,
+      after: 20,
+    },
+  });
 }
 
 function jobOrg(text) {
@@ -714,8 +735,13 @@ const L = lang === 'en' ? {
 <html>
 <head>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+body {
       font-family: Arial, sans-serif;
       font-size: 10.5pt;
       color: #1A1A2E;
@@ -724,20 +750,22 @@ const L = lang === 'en' ? {
       padding-bottom: 0 !important;
     }
 
-    /* ── HEADER ── */
+/* HEADER */
     .header-name {
       font-size: 22pt;
       font-weight: bold;
       text-align: center;
       margin-bottom: 4px;
     }
-    .header-subline {
+
+.header-subline {
       font-size: 11pt;
       text-align: center;
       color: #333;
       margin-bottom: 4px;
     }
-    .header-contact {
+
+.header-contact {
       font-size: 10pt;
       text-align: center;
       color: #444;
@@ -746,7 +774,7 @@ const L = lang === 'en' ? {
       margin-bottom: 14px;
     }
 
-    /* ── SECTION TITLE ── */
+/* SECTION TITLE */
     .section-title {
       font-size: 11pt;
       font-weight: bold;
@@ -757,46 +785,105 @@ const L = lang === 'en' ? {
       margin: 10px 0 8px;
     }
 
-    /* ── JOB ── */
+/* JOB HEADER */
     .job-header {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      column-gap: 12px;
+      align-items: start;
+      width: 100%;
       font-size: 11pt;
       font-weight: bold;
       margin-bottom: 2px;
     }
-    .job-date {
+
+.job-header > span:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+.job-date {
+      display: block;
+      white-space: nowrap;
+      text-align: right;
       font-size: 10pt;
       font-weight: normal;
       color: #555;
     }
-    .job-org {
+
+.job-org {
       font-size: 10pt;
       font-style: italic;
       color: #444;
       margin-bottom: 4px;
       margin-top: 5px;
     }
-    .job-location { color: #444; font-style: italic; font-weight: normal; }
-    .job-location-separator, .edu-location-separator { color: inherit !important; }
-    .turun {
-    font-weight: bold; 
-    font-size:11pt; 
-    color:#000;
-    }
-      .lokasi {
-  font-size: 10pt !important;
-  font-style: italic;
-  font-weight: normal !important;
-  color: #444;
-}
 
-    /* ── BULLETS ── */
+.job-location {
+      color: #444;
+      font-style: italic;
+      font-weight: normal;
+    }
+
+.job-location-separator,
+    .edu-location-separator {
+      color: inherit !important;
+    }
+
+/* EDUCATION */
+    .edu-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      column-gap: 12px;
+      align-items: start;
+      width: 100%;
+      font-size: 11pt;
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+.edu-row > span:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+.edu-location {
+      font-size: 10pt;
+      font-weight: normal;
+      font-style: italic;
+      color: #767171;
+    }
+
+.edu-org {
+      font-size: 10pt;
+      font-style: italic;
+      color: #767171;
+      margin-top: 5px;
+    }
+
+/* OTHER TEXT */
+    .turun {
+      font-weight: bold;
+      font-size: 11pt;
+      color: #000;
+    }
+
+.lokasi {
+      font-size: 10pt !important;
+      font-style: italic;
+      font-weight: normal !important;
+      color: #444;
+    }
+
+/* BULLETS */
     ul {
       margin: 4px 0 8px 18px;
       padding: 0;
     }
-    ul li {
+
+ul li {
       font-size: 10.5pt;
       color: #1A1A2E;
       line-height: 1.3;
@@ -804,14 +891,15 @@ const L = lang === 'en' ? {
       margin-bottom: 6px;
     }
 
-    ul:last-of-type {
-  margin-bottom: 0 !important;
-}
-ul:last-of-type li:last-child {
-  margin-bottom: 0 !important;
-}
+ul:last-of-type {
+      margin-bottom: 0 !important;
+    }
 
-    /* ── SKILLS ── */
+ul:last-of-type li:last-child {
+      margin-bottom: 0 !important;
+    }
+
+/* SUMMARY */
     .summary {
       font-size: 10.5pt;
       line-height: 1.15;
@@ -819,63 +907,90 @@ ul:last-of-type li:last-child {
       margin-bottom: 12px;
     }
 
+/* SKILLS */
     .skills-block p {
       font-size: 10pt;
       line-height: 1.3;
       text-align: justify;
       margin-bottom: 2px;
     }
-
-    /* ── EDUCATION ── */
-    .edu-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11pt;
-      font-weight: bold;
-      margin-bottom: 2px;
-    }
-    .edu-location { font-size: 10pt; font-weight: normal; font-style: italic; color: #767171; }
-    .edu-org {
-      font-size: 10pt;
-      font-style: italic;
-      color: #767171;
-      margin-top: 5px;
-    }
   </style>
 </head>
+
 <body>
-      <div class="header-name">${escapeHtml(PROFILE.name)}</div>
-      <div class="header-subline">${escapeHtml(tag1 || '[isi]')} &nbsp;|&nbsp; ${escapeHtml(tag2 || '[isi]')} &nbsp;|&nbsp; ${escapeHtml(getEducationDegree(PROFILE, lang))}</div>
-      <div class="header-contact">
-        ${escapeHtml(PROFILE.phone)} &nbsp;|&nbsp; ${escapeHtml(PROFILE.email)} &nbsp;|&nbsp; ${escapeHtml(PROFILE.location)}
-      </div>
+  <div class="header-name">
+    ${escapeHtml(PROFILE.name)}
+  </div>
 
-      <div class="section-title">${L.summary}</div>
-      <p class="summary">${escapeHtml(ringkasan || '[isi]')}.</p>
+<div class="header-subline">
+    ${escapeHtml(tag1 || '[isi]')}
+     | 
+    ${escapeHtml(tag2 || '[isi]')}
+     | 
+    ${escapeHtml(getEducationDegree(PROFILE, lang))}
+  </div>
 
-      <div class="section-title">${L.workExp}</div>
+<div class="header-contact">
+    ${escapeHtml(PROFILE.phone)}
+     | 
+    ${escapeHtml(PROFILE.email)}
+     | 
+    ${escapeHtml(PROFILE.location)}
+  </div>
 
-        ${experienceHtml(PROFILE, lang, parseBullets)}
+<div class="section-title">
+    ${L.summary}
+  </div>
 
-      <div class="section-title">${L.education}</div>
-      <div class="edu-row">
-            <span>${escapeHtml(PROFILE.educationInstitution)}<span class="edu-location"><span class="edu-location-separator"> — </span>${escapeHtml(PROFILE.educationLocation)}</span></span>
-            <span class="job-date">${escapeHtml(profileDateRange(PROFILE, 'education', lang))}</span>
-      </div>
-      <div class="edu-org">
-            ${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; <b>${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}</b>
-      </div>
+<p class="summary">
+    ${escapeHtml(ringkasan || '[isi]')}.
+  </p>
 
-      ${includeOrganizationSection ? `
-        <div class="section-title">${escapeHtml(L.orgExp)}</div>
-        ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
-      ` : ''}
+<div class="section-title">
+    ${L.workExp}
+  </div>
 
-      <div class="section-title">${L.skills}</div>
-      <div class="skills-block">${renderSkills(skills)}</div>
+  ${experienceHtml(PROFILE, lang, parseBullets)}
 
-    </body>
-    </html>`;
+<div class="section-title">
+    ${L.education}
+  </div>
+
+<div class="edu-row">
+    <span>
+      ${escapeHtml(PROFILE.educationInstitution)}
+      <span class="edu-location">
+        <span class="edu-location-separator"> — </span>
+        ${escapeHtml(PROFILE.educationLocation)}
+      </span>
+    </span>
+
+<span class="job-date">
+      ${escapeHtml(profileDateRange(PROFILE, 'education', lang))}
+    </span>
+  </div>
+
+<div class="edu-org">
+    ${escapeHtml(getEducationDegree(PROFILE, lang))}
+     | 
+    <b>
+      ${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}
+    </b>
+  </div>
+
+${includeOrganizationSection ? `
+
+    $` : ''}
+
+<div class="section-title">
+    ${L.skills}
+  </div>
+
+<div class="skills-block">
+    ${renderSkills(skills)}
+  </div>
+</body>
+</html>`;
 
     const file = { content: html };
 const options = {
@@ -1125,21 +1240,29 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
 <html>
 <head>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+body {
       font-family: Arial, sans-serif;
       font-size: 10pt;
       color: #1A1A2E;
       line-height: 1.15;
       padding: 0;
     }
+
+/* HEADER */
     .header-name {
       font-size: 22pt;
       font-weight: bold;
       text-align: center;
       margin-bottom: 4px;
     }
-    .header-contact {
+
+.header-contact {
       font-size: 10pt;
       text-align: center;
       color: #444;
@@ -1147,12 +1270,16 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       border-bottom: 2px solid #1A1A2E;
       margin-bottom: 12px;
     }
+
+/* SUMMARY */
     .summary {
       font-size: 10pt;
       line-height: 1.15;
       text-align: justify;
       margin-bottom: 12px;
     }
+
+/* SECTION TITLE */
     .section-title {
       font-size: 11pt;
       font-weight: bold;
@@ -1163,87 +1290,217 @@ app.post('/api/generate-cv-pdf', async (req, res) => {
       margin: 10px 0 8px;
       page-break-after: avoid;
     }
-    .education-block {
-      page-break-inside: avoid;
-    }
+
+/* JOB HEADER */
     .job-header {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      column-gap: 12px;
+      align-items: start;
+      width: 100%;
       font-size: 11pt;
       font-weight: bold;
       margin-bottom: 2px;
     }
-    .job-date {
+
+.job-header > span:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+.job-date {
+      display: block;
+      white-space: nowrap;
+      text-align: right;
       font-size: 10pt;
       font-weight: normal;
       color: #555;
     }
-    .job-entry {
+
+.job-entry {
       page-break-inside: avoid;
       margin-bottom: 8px;
     }
-    .job-org {
+
+.job-org {
       font-size: 10pt;
       font-style: italic;
       color: #444;
       margin-bottom: 4px;
       margin-top: 5px;
     }
-    .job-location { color: #444; font-style: italic; font-weight: normal; }
-    .job-location-separator, .edu-location-separator { color: inherit !important; }
-    .turun { font-weight: bold; font-size:11pt; color:#000; }
-    .lokasi { font-size: 10pt !important; font-style: italic; font-weight: normal !important; color: #444; }
-    ul { margin: 4px 0 8px 18px; padding: 0; }
-    ul li { font-size: 10pt; color: #1A1A2E; margin-bottom: 6px; line-height: 1.3; text-align: justify; }
-    ul:last-of-type { margin-bottom: 0 !important; }
-    ul:last-of-type li:last-child { margin-bottom: 0 !important; }
-    .skills-block p { font-size: 10pt; line-height: 1.3; text-align: justify; margin-bottom: 2px; }
-    .edu-row { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 2px; }
-    .edu-institution { font-weight: bold; font-size: 11pt; }
-    .edu-location { font-weight: normal; font-size: 10pt; color: #767171; font-style: italic; }
-    .edu-org { font-size: 10pt; font-style: italic; color: #767171; margin-top: 5px; }
+
+.job-location {
+      color: #444;
+      font-style: italic;
+      font-weight: normal;
+    }
+
+.job-location-separator,
+    .edu-location-separator {
+      color: inherit !important;
+    }
+
+/* EDUCATION */
+    .education-block {
+      page-break-inside: avoid;
+    }
+
+.edu-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      column-gap: 12px;
+      align-items: start;
+      width: 100%;
+      font-size: 10pt;
+      margin-bottom: 2px;
+    }
+
+.edu-row > span:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+.edu-institution {
+      font-weight: bold;
+      font-size: 11pt;
+    }
+
+.edu-location {
+      font-weight: normal;
+      font-size: 10pt;
+      color: #767171;
+      font-style: italic;
+    }
+
+.edu-org {
+      font-size: 10pt;
+      font-style: italic;
+      color: #767171;
+      margin-top: 5px;
+    }
+
+/* OTHER TEXT */
+    .turun {
+      font-weight: bold;
+      font-size: 11pt;
+      color: #000;
+    }
+
+.lokasi {
+      font-size: 10pt !important;
+      font-style: italic;
+      font-weight: normal !important;
+      color: #444;
+    }
+
+/* BULLETS */
+    ul {
+      margin: 4px 0 8px 18px;
+      padding: 0;
+    }
+
+ul li {
+      font-size: 10pt;
+      color: #1A1A2E;
+      margin-bottom: 6px;
+      line-height: 1.3;
+      text-align: justify;
+    }
+
+ul:last-of-type {
+      margin-bottom: 0 !important;
+    }
+
+ul:last-of-type li:last-child {
+      margin-bottom: 0 !important;
+    }
+
+/* SKILLS */
+    .skills-block p {
+      font-size: 10pt;
+      line-height: 1.3;
+      text-align: justify;
+      margin-bottom: 2px;
+    }
   </style>
 </head>
+
 <body>
-  <div class="header-name">${escapeHtml(PROFILE.name)}</div>
-  <div class="header-contact">
-    ${escapeHtml(PROFILE.phone)} &nbsp;|&nbsp; ${escapeHtml(PROFILE.email)} &nbsp;|&nbsp; ${escapeHtml(PROFILE.location)}
+  <div class="header-name">
+    ${escapeHtml(PROFILE.name)}
   </div>
 
-  <p class="summary">${escapeHtml(ringkasan || '[isi]')}</p>
+<div class="header-contact">
+    ${escapeHtml(PROFILE.phone)}
+     | 
+    ${escapeHtml(PROFILE.email)}
+     | 
+    ${escapeHtml(PROFILE.location)}
+  </div>
 
-  <div class="section-title">${L.workExp}</div>
+<p class="summary">
+    ${escapeHtml(ringkasan || '[isi]')}
+  </p>
+
+<div class="section-title">
+    ${L.workExp}
+  </div>
 
   ${experienceHtml(PROFILE, lang, parseBullets)}
 
-  <div class="education-block">
-    <div class="section-title">${L.education}</div>
-    <div class="edu-row">
-      <span><span class="edu-institution">${escapeHtml(PROFILE.educationInstitution)}</span><span class="edu-location"><span class="edu-location-separator"> — </span>${escapeHtml(PROFILE.educationLocation)}</span></span>
-      <span class="job-date">${escapeHtml(profileDateRange(PROFILE, 'education', lang))}</span>
+<div class="education-block">
+    <div class="section-title">
+      ${L.education}
     </div>
-    <div class="edu-org">${escapeHtml(getEducationDegree(PROFILE, lang))} &nbsp;|&nbsp; ${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}</div>
+
+<div class="edu-row">
+      <span>
+        <span class="edu-institution">
+          ${escapeHtml(PROFILE.educationInstitution)}
+        </span>
+        <span class="edu-location">
+          <span class="edu-location-separator"> — </span>
+          ${escapeHtml(PROFILE.educationLocation)}
+        </span>
+      </span>
+
+<span class="job-date">
+        ${escapeHtml(profileDateRange(PROFILE, 'education', lang))}
+      </span>
+    </div>
+
+<div class="edu-org">
+      ${escapeHtml(getEducationDegree(PROFILE, lang))}
+       | 
+      ${getGpaLabel(lang)}: ${escapeHtml(PROFILE.educationGpa)}
+    </div>
   </div>
 
-  ${includeOrganizationSection ? `
-    <div class="section-block">
-      <div class="section-title">${L.orgExp}</div>
-      ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
-    </div>
-  ` : ''}
+${includeOrganizationSection ? `
 
-  <!-- Projects temporarily hidden.
+` : ''}
+
+<!-- Projects temporarily hidden.
   <div class="section-block">
-    <div class="section-title">${L.projects}</div>
+    <div class="section-title">
+      ${L.projects}
+    </div>
     ${renderProjectsHtml(projects)}
   </div>
   -->
 
-  <div class="section-block">
-    <div class="section-title">${L.skills}</div>
-    <div class="skills-block">${renderSkillsHtml(skills)}</div>
-  </div>
+<div class="section-block">
+    <div class="section-title">
+      ${L.skills}
+    </div>
 
+<div class="skills-block">
+      ${renderSkillsHtml(skills)}
+    </div>
+  </div>
 </body>
 </html>`;
 
