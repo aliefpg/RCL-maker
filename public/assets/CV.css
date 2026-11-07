@@ -87,7 +87,8 @@
   font-weight: normal;
   font-style: italic;
   color: #767171;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .doc-job-client {
   display: block;
@@ -112,13 +113,16 @@
 }
 [data-work-experiences] .doc-job-title {
   min-width: 0;
-  max-width: 55%;
   white-space: normal;
-  overflow-wrap: break-word;
+}
+[data-work-experiences] .doc-job-company {
+  display: inline-block;
+  max-width: 55%;
+  vertical-align: top;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 [data-work-experiences] .doc-job-location-inline {
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: normal;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }

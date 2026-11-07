@@ -12,6 +12,8 @@ const DEFAULT_PROFILE = {
   name: 'Nama Anda',
   phone: 'Nomor Telepon',
   email: 'email@example.com',
+  linkedin: '',
+  portfolio: '',
   location: 'Kota, Negara',
   letterYear: '2026',
   experiences: [
@@ -43,8 +45,9 @@ function getProfile(input = {}, requestBody = {}) {
       role: String(item.role || '').slice(0, 200),
       company: String(item.company || '').slice(0, 200),
       location: String(item.location || '').slice(0, 200),
+      client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
-      end: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.end) ? item.end : '',
+      end: /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|sekarang)$/i.test(item.end) ? item.end : '',
       description: String(item.description || '').slice(0, 5000),
     }));
   } else {
@@ -56,6 +59,10 @@ function getProfile(input = {}, requestBody = {}) {
   return profile;
 }
 
+function profileContactItems(profile) {
+  return [profile.phone, profile.email, profile.linkedin, profile.portfolio, profile.location].filter(Boolean);
+}
+
 function getOrganizationExperiences(value, profile) {
   if (profile?.organizationExperienceEnabled === false) return [];
   if (Array.isArray(profile?.organizationExperiences)) {
@@ -63,8 +70,9 @@ function getOrganizationExperiences(value, profile) {
       role: String(item.role || '').slice(0, 200),
       company: String(item.company || '').slice(0, 200),
       location: String(item.location || '').slice(0, 200),
+      client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
-      end: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.end) ? item.end : '',
+      end: /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|sekarang)$/i.test(item.end) ? item.end : '',
       description: String(item.description || '').slice(0, 5000),
     }));
   }
@@ -99,6 +107,9 @@ const MONTHS = {
 };
 
 function formatProfileDate(value, lang = 'id') {
+  if (/^(present|current|sekarang)$/i.test(String(value || '').trim())) {
+    return lang === 'en' ? 'Present' : 'Sekarang';
+  }
   const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value || '');
   if (!match) return '';
   return `${MONTHS[lang][Number(match[2]) - 1]} ${match[1]}`;
@@ -117,6 +128,7 @@ function experienceDocxChildren(profile, parseBullets, bulletRenderer, lang) {
     return [
       jobHeader(title, experience.location ? ` — ${experience.location}` : '', profileDateRange(experience, '', lang)),
       jobOrg(experience.role),
+      ...(experience.client ? [jobOrg(`Client: ${experience.client}`)] : []),
       ...bullets.map(bulletRenderer),
     ];
   });
@@ -129,6 +141,7 @@ function organizationExperienceDocxChildren(experiences, parseBullets, bulletRen
     return [
       jobHeader(experience.role || '[Jabatan/peran]', '', profileDateRange(experience, '', lang)),
       ...(organization ? [jobOrg(organization)] : []),
+      ...(experience.client ? [jobOrg(`Client: ${experience.client}`)] : []),
       ...bullets.map(bulletRenderer),
     ];
   });
@@ -138,10 +151,11 @@ function experienceHtml(profile, lang, parseBullets) {
   return profile.experiences.map(experience => `
     <div class="job-entry">
       <div class="job-header">
-        <span>${escapeHtml(experience.company || experience.role || '[Perusahaan]')}${experience.location ? ` <span class="job-location"><span class="job-location-separator">— </span>${escapeHtml(experience.location)}</span>` : ''}</span>
+        <span><span class="job-company">${escapeHtml(experience.company || experience.role || '[Perusahaan]')}</span>${experience.location ? ` <span class="job-location"><span class="job-location-separator">— </span>${escapeHtml(experience.location)}</span>` : ''}</span>
         <span class="job-date">${escapeHtml(profileDateRange(experience, '', lang))}</span>
       </div>
       <div class="job-org">${escapeHtml(experience.role)}</div>
+      ${experience.client ? `<div class="job-client">Client: ${escapeHtml(experience.client)}</div>` : ''}
       <ul>${parseBullets(experience.description).map(line => `<li>${escapeHtml(line)}</li>`).join('') || '<li>[isi]</li>'}</ul>
     </div>
   `).join('');
@@ -360,7 +374,7 @@ const L = lang === 'en' ? {
       }),
       new Paragraph({
         children: [new TextRun({
-          text: `${PROFILE.phone}  |  ${PROFILE.email}  |  ${PROFILE.location}`,
+          text: profileContactItems(PROFILE).join('  |  '),
           ...sz(10), color: '444444'
         })],
         alignment: AlignmentType.CENTER,
@@ -799,9 +813,25 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
+    }
+
+.work-experiences .job-company {
+      display: inline-block;
       max-width: 55%;
+      vertical-align: top;
       overflow-wrap: anywhere;
       word-break: normal;
+    }
+
+.work-experiences .job-location {
+      white-space: nowrap;
+      overflow-wrap: normal;
+    }
+
+.job-client {
+      font-size: 10pt;
+      color: #444;
+      margin: 2px 0 4px;
     }
 
 .job-date {
@@ -855,6 +885,7 @@ body {
       font-weight: normal;
       font-style: italic;
       color: #767171;
+      white-space: nowrap;
     }
 
 .edu-org {
@@ -932,11 +963,7 @@ ul:last-of-type li:last-child {
   </div>
 
 <div class="header-contact">
-    ${escapeHtml(PROFILE.phone)}
-     | 
-    ${escapeHtml(PROFILE.email)}
-     | 
-    ${escapeHtml(PROFILE.location)}
+    ${profileContactItems(PROFILE).map(escapeHtml).join(' &nbsp;|&nbsp; ')}
   </div>
 
 <div class="section-title">
@@ -1085,7 +1112,7 @@ app.post('/api/generate-cv-docx', async (req, res) => {
       }),
       new Paragraph({
         children: [new TextRun({
-          text: `${PROFILE.phone}  |  ${PROFILE.email}  |  ${PROFILE.location}`,
+          text: profileContactItems(PROFILE).join('  |  '),
           ...sz(10), color: '444444'
         })],
         alignment: AlignmentType.CENTER,
@@ -1307,9 +1334,25 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
+    }
+
+.work-experiences .job-company {
+      display: inline-block;
       max-width: 55%;
+      vertical-align: top;
       overflow-wrap: anywhere;
       word-break: normal;
+    }
+
+.work-experiences .job-location {
+      white-space: nowrap;
+      overflow-wrap: normal;
+    }
+
+.job-client {
+      font-size: 10pt;
+      color: #444;
+      margin: 2px 0 4px;
     }
 
 .job-date {
@@ -1376,6 +1419,7 @@ body {
       font-size: 10pt;
       color: #767171;
       font-style: italic;
+      white-space: nowrap;
     }
 
 .edu-org {
@@ -1437,11 +1481,7 @@ ul:last-of-type li:last-child {
   </div>
 
 <div class="header-contact">
-    ${escapeHtml(PROFILE.phone)}
-     | 
-    ${escapeHtml(PROFILE.email)}
-     | 
-    ${escapeHtml(PROFILE.location)}
+    ${profileContactItems(PROFILE).map(escapeHtml).join(' &nbsp;|&nbsp; ')}
   </div>
 
 <p class="summary">

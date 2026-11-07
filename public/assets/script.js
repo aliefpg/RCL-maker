@@ -295,7 +295,7 @@ function renderExperienceEntries(experiences) {
       return `
         <div class="doc-job">
           <div class="doc-job-row">
-            <span class="doc-job-title">${escHtml(experience.company || experience.role || '[Perusahaan]')}${experience.location ? ` <span class="doc-job-location-inline">— ${escHtml(experience.location)}</span>` : ''}</span>
+            <span class="doc-job-title"><span class="doc-job-company">${escHtml(experience.company || experience.role || '[Perusahaan]')}</span>${experience.location ? ` <span class="doc-job-location-inline">— ${escHtml(experience.location)}</span>` : ''}</span>
             <span class="doc-job-date">${escHtml(profileDateRange(experience.start, experience.end))}</span>
           </div>
           ${experience.role ? `<div class="doc-job-org">${escHtml(experience.role)}</div>` : ''}
