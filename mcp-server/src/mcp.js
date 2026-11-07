@@ -99,7 +99,7 @@ export function createMcpServer({ userId }) {
       const common = [
         'profile.name, phone, email, linkedin, portfolio, location',
         'profile.educationDegreeId, educationDegreeEn, educationInstitution, educationLocation, educationStart, educationEnd, educationGpa',
-        'profile.experiences[]: role, company, location, client, start, end, current, description (use current: true or end: present/sekarang for an ongoing role; otherwise end accepts YYYY-MM)',
+        'profile.experiences[]: role, company, location, client, start, end (or endDate), current/isCurrent, description (use current: true or end: present/sekarang for an ongoing role; otherwise end accepts YYYY-MM)',
         'profile.organizationExperienceEnabled, profile.organizationExperiences[]',
       ];
 
@@ -153,7 +153,7 @@ export function createMcpServer({ userId }) {
           'Do not invent personal history, employers, dates, degrees, certifications, or measurable achievements.',
           'Use empty strings for unknown optional values.',
           'For experience start dates, use YYYY-MM; for an ongoing role, set end to present or sekarang.',
-          'For an ongoing role, set current: true or end to present, current, now, ongoing, or sekarang so the PDF shows the current end date.',
+          'For an ongoing role, set current: true or end to present, current, now, ongoing, sekarang, saat ini, or masih bekerja so the PDF shows the current end date.',
           'Experience descriptions accept multiline text. Keep client as a separate client field, not inside the achievement bullets.',
           'Experience start dates use YYYY-MM; an ongoing role uses end: present or sekarang.',
           'profile.linkedin and profile.portfolio are included in the contact line.',

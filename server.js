@@ -47,9 +47,7 @@ function getProfile(input = {}, requestBody = {}) {
       location: String(item.location || '').slice(0, 200),
       client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
-      end: item.current === true || item.isCurrent === true
-        ? 'sekarang'
-        : /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|now|ongoing|sekarang)$/i.test(item.end) ? item.end : '',
+      end: normalizeExperienceEnd(item),
       description: String(item.description || '').slice(0, 5000),
     }));
   } else {
@@ -59,6 +57,15 @@ function getProfile(input = {}, requestBody = {}) {
     }));
   }
   return profile;
+}
+
+function normalizeExperienceEnd(experience) {
+  const end = String(experience.end || experience.endDate || '').trim();
+  const isCurrent = [experience.current, experience.isCurrent].some(value =>
+    value === true || /^(true|yes|current|present|now|ongoing|sekarang)$/i.test(String(value || '').trim()));
+  if (isCurrent) return 'sekarang';
+  if (/^(present|current|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(end)) return 'sekarang';
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(end) ? end : '';
 }
 
 function profileContactItems(profile) {
@@ -74,9 +81,7 @@ function getOrganizationExperiences(value, profile) {
       location: String(item.location || '').slice(0, 200),
       client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ? item.start : '',
-      end: item.current === true || item.isCurrent === true
-        ? 'sekarang'
-        : /^\d{4}-(0[1-9]|1[0-2])$|^(present|current|now|ongoing|sekarang)$/i.test(item.end) ? item.end : '',
+      end: normalizeExperienceEnd(item),
       description: String(item.description || '').slice(0, 5000),
     }));
   }
@@ -824,7 +829,7 @@ body {
     .job-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) max-content;
-      column-gap: 12px;
+      column-gap: 10px;
       align-items: start;
       width: 100%;
       font-size: 11pt;
@@ -834,7 +839,6 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
-      max-width: 65%;
       overflow-wrap: anywhere;
     }
 
@@ -901,11 +905,11 @@ body {
     }
 
 .edu-institution {
-      font-size: 9pt;
+      font-size: 10.5pt;
     }
 
 .edu-location {
-      font-size: 9pt;
+      font-size: 10.5pt;
       font-weight: normal;
       font-style: italic;
       color: #767171;
@@ -1349,7 +1353,7 @@ body {
     .job-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) max-content;
-      column-gap: 12px;
+      column-gap: 10px;
       align-items: start;
       width: 100%;
       font-size: 11pt;
@@ -1359,7 +1363,6 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
-      max-width: 65%;
       overflow-wrap: anywhere;
     }
 
@@ -1435,12 +1438,12 @@ body {
 
 .edu-institution {
       font-weight: bold;
-      font-size: 9pt;
+      font-size: 10.5pt;
     }
 
 .edu-location {
       font-weight: normal;
-      font-size: 9pt;
+      font-size: 10.5pt;
       color: #767171;
       font-style: italic;
       white-space: nowrap;

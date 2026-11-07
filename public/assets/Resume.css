@@ -446,7 +446,6 @@ input[type="text"]:focus {
 
 [data-work-experiences] .doc-job-title {
   min-width: 0;
-  max-width: 65%;
   white-space: normal;
   overflow-wrap: anywhere;
 }

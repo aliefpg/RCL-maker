@@ -3,7 +3,7 @@ import { z } from 'zod';
 const shortText = z.string().max(200).optional().default('');
 const longText = z.string().max(5000).optional().default('');
 const month = z.string().regex(/^$|^\d{4}-(0[1-9]|1[0-2])$/).optional().default('');
-const experienceEnd = z.string().regex(/^$|^\d{4}-(0[1-9]|1[0-2])$|^(present|current|now|ongoing|sekarang)$/i).optional().default('');
+const experienceEnd = z.string().trim().regex(/^$|^\d{4}-(0[1-9]|1[0-2])$|^(present|current|now|ongoing|sekarang|saat ini|masih bekerja)$/i).optional().default('');
 
 const experienceSchema = z.object({
   role: shortText,
@@ -12,7 +12,9 @@ const experienceSchema = z.object({
   client: shortText,
   start: month,
   end: experienceEnd,
+  endDate: experienceEnd,
   current: z.boolean().optional(),
+  isCurrent: z.boolean().optional(),
   description: longText,
 });
 
