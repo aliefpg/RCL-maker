@@ -108,6 +108,14 @@ function isEmptyExperience(experience) {
   });
 }
 
+function normalizeExperienceEnd(experience) {
+  const end = String(experience.end || experience.endDate || '').trim();
+  const isCurrent = [experience.current, experience.isCurrent].some(value =>
+    value === true || /^(true|yes|current|present|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(String(value || '').trim()));
+  if (isCurrent || /^(present|current|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(end)) return 'present';
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(end) ? end : '';
+}
+
 function mergeAutofilledExperiences(existing, incoming) {
   const experiences = existing.map(experience => ({ ...experience }));
   incoming.forEach(experience => {
@@ -155,9 +163,7 @@ function normalizeProfile(input) {
       location: String(item.location || '').slice(0, 200),
       client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-\d{2}$/.test(item.start) ? item.start : '',
-      end: /^(?:\d{4}-\d{2}|present|current|sekarang)$/i.test(String(item.end || '').trim())
-        ? (/^(present|current|sekarang)$/i.test(String(item.end || '').trim()) ? 'present' : String(item.end).trim())
-        : '',
+      end: normalizeExperienceEnd(item),
       description: String(item.description || '').slice(0, 5000),
     }))
     : (normalized.organizationExperienceEnabled && typeof input?.organizationExperience === 'string' && input.organizationExperience.trim()
@@ -176,9 +182,7 @@ function normalizeProfile(input) {
       location: String(item.location || '').slice(0, 200),
       client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-\d{2}$/.test(item.start) ? item.start : '',
-      end: /^(?:\d{4}-\d{2}|present|current|sekarang)$/i.test(String(item.end || '').trim())
-        ? (/^(present|current|sekarang)$/i.test(String(item.end || '').trim()) ? 'present' : String(item.end).trim())
-        : '',
+      end: normalizeExperienceEnd(item),
       description: String(item.description || '').slice(0, 5000),
     }));
     normalized.experiences.forEach(experience => {
@@ -237,7 +241,7 @@ const MONTHS = {
 };
 
 function formatProfileDate(value, language = getDocumentLanguage()) {
-  if (/^(present|current|sekarang)$/i.test(String(value || '').trim())) {
+  if (/^(present|current|now|ongoing|sekarang|saat ini|masih bekerja)$/i.test(String(value || '').trim())) {
     return language === 'en' ? 'Present' : 'Sekarang';
   }
   const match = /^(\d{4})-(\d{2})$/.exec(value || '');

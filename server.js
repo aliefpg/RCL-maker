@@ -839,7 +839,6 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
-      max-width: 70%;
       overflow-wrap: anywhere;
     }
 
@@ -1364,7 +1363,6 @@ body {
 
 .work-experiences .job-header > span:first-child {
       min-width: 0;
-      max-width: 70%;
       overflow-wrap: anywhere;
     }
 
