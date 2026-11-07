@@ -109,7 +109,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: start;
-  column-gap: 10px;
+  column-gap: 20px;
 }
 [data-work-experiences] .doc-job-title {
   min-width: 0;

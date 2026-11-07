@@ -72,6 +72,34 @@ function profileContactItems(profile) {
   return [profile.phone, profile.email, profile.linkedin, profile.portfolio, profile.location].filter(Boolean);
 }
 
+function profileContactHtml(profile) {
+  const phone = profile.phone ? {
+    value: profile.phone,
+    href: `tel:${profile.phone.replace(/[^\d+]/g, '')}`,
+  } : null;
+  const email = profile.email ? { value: profile.email, href: `mailto:${profile.email}` } : null;
+  const webLink = value => {
+    if (!value) return null;
+    try {
+      const url = new URL(/^[a-z][a-z\d+.-]*:/i.test(value) ? value : `https://${value}`);
+      return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+    } catch {
+      return null;
+    }
+  };
+  const items = [
+    phone,
+    email,
+    profile.linkedin && { value: profile.linkedin, href: webLink(profile.linkedin) },
+    profile.portfolio && { value: profile.portfolio, href: webLink(profile.portfolio) },
+    profile.location && { value: profile.location },
+  ].filter(Boolean);
+  return items.map(({ value, href }) => {
+    const text = escapeHtml(value);
+    return href ? `<a href="${escapeHtml(href)}">${text}</a>` : text;
+  }).join(' &nbsp;|&nbsp; ');
+}
+
 function getOrganizationExperiences(value, profile) {
   if (profile?.organizationExperienceEnabled === false) return [];
   if (Array.isArray(profile?.organizationExperiences)) {
@@ -805,13 +833,18 @@ body {
     }
 
 .header-contact {
-      font-size: 9pt;
+      font-size: 9.5pt;
       text-align: center;
       color: #444;
       white-space: nowrap;
       padding-bottom: 8px;
       border-bottom: 2px solid #1A1A2E;
       margin-bottom: 14px;
+    }
+
+.header-contact a {
+      color: inherit;
+      text-decoration: underline;
     }
 
 /* SECTION TITLE */
@@ -829,7 +862,7 @@ body {
     .job-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) max-content;
-      column-gap: 10px;
+      column-gap: 20px;
       align-items: start;
       width: 100%;
       font-size: 11pt;
@@ -991,7 +1024,7 @@ ul:last-of-type li:last-child {
   </div>
 
 <div class="header-contact">
-    ${profileContactItems(PROFILE).map(escapeHtml).join(' &nbsp;|&nbsp; ')}
+    ${profileContactHtml(PROFILE)}
   </div>
 
 <div class="section-title">
@@ -1320,13 +1353,18 @@ body {
     }
 
 .header-contact {
-      font-size: 9pt;
+      font-size: 9.5pt;
       text-align: center;
       color: #444;
       white-space: nowrap;
       padding-bottom: 8px;
       border-bottom: 2px solid #1A1A2E;
       margin-bottom: 12px;
+    }
+
+.header-contact a {
+      color: inherit;
+      text-decoration: underline;
     }
 
 /* SUMMARY */
@@ -1353,7 +1391,7 @@ body {
     .job-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) max-content;
-      column-gap: 10px;
+      column-gap: 20px;
       align-items: start;
       width: 100%;
       font-size: 11pt;
@@ -1508,7 +1546,7 @@ ul:last-of-type li:last-child {
   </div>
 
 <div class="header-contact">
-    ${profileContactItems(PROFILE).map(escapeHtml).join(' &nbsp;|&nbsp; ')}
+    ${profileContactHtml(PROFILE)}
   </div>
 
 <p class="summary">
