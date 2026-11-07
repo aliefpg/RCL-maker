@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const { createHash, randomUUID } = require('node:crypto');
+const { createClient } = require('@supabase/supabase-js');
 const { ImageRun } = require('docx');
 const htmlPdf = require('html-pdf-node');
 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition } = require('docx');
@@ -235,6 +237,134 @@ async function generatePdf(file, options) {
 }
 
 // Middleware
+
+// One-time private signature upload endpoint used by public/signature-upload.html.
+// Keep this route BEFORE bodyParser.json so the original PNG/JPEG bytes are preserved.
+let signatureSupabaseClient;
+function getSignatureSupabase() {
+  if (!signatureSupabaseClient) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+    if (!url || !key) throw new Error('Supabase belum dikonfigurasi: periksa SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY.');
+    signatureSupabaseClient = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return signatureSupabaseClient;
+}
+
+app.post('/api/signature-upload/:token',
+  express.raw({ type: ['image/png', 'image/jpeg'], limit: '512kb' }),
+  async (req, res) => {
+    let uploadedPath = '';
+    try {
+      const rawToken = String(req.params.token || '');
+      if (!rawToken || rawToken.length > 200) {
+        return res.status(400).json({ error: 'Token upload tidak valid. Minta tautan baru dari Claude.' });
+      }
+      const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+      if (!['image/png', 'image/jpeg'].includes(contentType)) {
+        return res.status(415).json({ error: 'Format file harus PNG atau JPEG.' });
+      }
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: 'File gambar tidak ditemukan atau kosong.' });
+      }
+      if (req.body.length > 512 * 1024) {
+        return res.status(413).json({ error: 'Ukuran gambar maksimal 512 KB.' });
+      }
+      const isPng = contentType === 'image/png'
+        && req.body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+      const isJpeg = contentType === 'image/jpeg'
+        && req.body[0] === 0xff && req.body[1] === 0xd8
+        && req.body[req.body.length - 2] === 0xff && req.body[req.body.length - 1] === 0xd9;
+      if (!isPng && !isJpeg) {
+        return res.status(400).json({ error: 'Isi file tidak cocok dengan format PNG/JPEG.' });
+      }
+
+      const supabase = getSignatureSupabase();
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+      const { data: tokenRow, error: tokenError } = await supabase
+        .from('signature_upload_tokens')
+        .select('token_hash, user_id, profile_id, expires_at, used_at')
+        .eq('token_hash', tokenHash)
+        .maybeSingle();
+      if (tokenError) throw new Error(`Gagal memeriksa token upload: ${tokenError.message}`);
+      if (!tokenRow) return res.status(404).json({ error: 'Token upload tidak ditemukan. Minta tautan baru dari Claude.' });
+      if (tokenRow.used_at) return res.status(410).json({ error: 'Tautan upload sudah digunakan. Minta tautan baru dari Claude.' });
+      if (new Date(tokenRow.expires_at).getTime() <= Date.now()) {
+        return res.status(410).json({ error: 'Tautan upload sudah kedaluwarsa. Minta tautan baru dari Claude.' });
+      }
+
+      // Claim the token before writing to Storage, preventing concurrent reuse.
+      const { data: claimed, error: claimError } = await supabase
+        .from('signature_upload_tokens')
+        .update({ used_at: new Date().toISOString() })
+        .eq('token_hash', tokenHash)
+        .is('used_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .select('token_hash')
+        .maybeSingle();
+      if (claimError) throw new Error(`Gagal mengunci token upload: ${claimError.message}`);
+      if (!claimed) return res.status(410).json({ error: 'Tautan upload sudah digunakan atau kedaluwarsa. Minta tautan baru dari Claude.' });
+
+      const { data: profile, error: profileError } = await supabase
+        .from('candidate_profiles')
+        .select('id, user_id, profile_name, profile_data')
+        .eq('id', tokenRow.profile_id)
+        .eq('user_id', tokenRow.user_id)
+        .maybeSingle();
+      if (profileError) throw new Error(`Gagal membaca profil: ${profileError.message}`);
+      if (!profile) return res.status(404).json({ error: 'Profil tujuan tidak ditemukan.' });
+
+      const extension = isPng ? 'png' : 'jpg';
+      const bucket = process.env.SUPABASE_SIGNATURE_BUCKET || 'profile-signatures';
+      uploadedPath = `${encodeURIComponent(tokenRow.user_id)}/${profile.id}/signature-${randomUUID()}.${extension}`;
+      const { error: storageError } = await supabase.storage.from(bucket).upload(uploadedPath, req.body, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (storageError) throw new Error(`Gagal mengunggah ke Supabase Storage: ${storageError.message}`);
+
+      const oldSignaturePath = profile.profile_data?.signature?.storagePath;
+      const nextProfileData = {
+        ...(profile.profile_data || {}),
+        signature: {
+          mode: 'upload',
+          storagePath: uploadedPath,
+          contentType,
+          extension,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from('candidate_profiles')
+        .update({ profile_data: nextProfileData })
+        .eq('id', profile.id)
+        .eq('user_id', tokenRow.user_id)
+        .select('id, profile_name')
+        .single();
+      if (updateError) throw new Error(`Gagal menyimpan metadata tanda tangan: ${updateError.message}`);
+
+      if (oldSignaturePath && oldSignaturePath !== uploadedPath) {
+        await supabase.storage.from(bucket).remove([oldSignaturePath]).catch(() => {});
+      }
+      return res.status(200).json({
+        success: true,
+        profileId: updatedProfile.id,
+        profileName: updatedProfile.profile_name,
+      });
+    } catch (error) {
+      console.error('SIGNATURE UPLOAD ERROR:', error);
+      if (uploadedPath) {
+        const bucket = process.env.SUPABASE_SIGNATURE_BUCKET || 'profile-signatures';
+        try { await getSignatureSupabase().storage.from(bucket).remove([uploadedPath]); } catch {}
+      }
+      return res.status(500).json({ error: error.message || 'Terjadi kesalahan saat menyimpan tanda tangan.' });
+    }
+  }
+);
+
 app.use(cors());
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
