@@ -429,6 +429,9 @@ input[type="text"]:focus {
   font-weight: 700;
   font-size: 10.5pt;
   flex: 1;
+  min-width: 0;
+  max-width: 55%;
+  overflow-wrap: anywhere;
 }
 
 .doc-job-date {
