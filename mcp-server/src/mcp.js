@@ -83,11 +83,12 @@ export function createMcpServer({ userId }) {
       .slice(0, 120) || fallback;
 
     const download = await createTemporaryDownload({
-      buffer: generated.buffer,
-      contentType: generated.contentType,
-      fileName,
-      format,
-    });
+  buffer: generated.buffer,
+  contentType: generated.contentType,
+  fileName,
+  format,
+  userId,
+});
 
     return {
       content: [{
@@ -101,14 +102,14 @@ export function createMcpServer({ userId }) {
         ].join('\n'),
       }],
       structuredContent: {
-        success: true,
-        documentId,
-        fileName,
-        format,
-        delivery: 'temporary-download-link',
-        downloadUrl: download.url,
-        expiresInSeconds: download.expiresInSeconds,
-      },
+  success: true,
+  documentId: download.documentId,
+  fileName,
+  format,
+  delivery: 'temporary-download-link',
+  downloadUrl: download.url,
+  expiresInSeconds: download.expiresInSeconds,
+},
     };
   }
 
