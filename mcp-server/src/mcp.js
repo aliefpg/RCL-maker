@@ -97,9 +97,9 @@ export function createMcpServer({ userId }) {
     },
     async ({ documentType }) => {
       const common = [
-        'profile.name, phone, email, location',
+        'profile.name, phone, email, linkedin, portfolio, location',
         'profile.educationDegreeId, educationDegreeEn, educationInstitution, educationLocation, educationStart, educationEnd, educationGpa',
-        'profile.experiences[]: role, company, location, start, end, description',
+        'profile.experiences[]: role, company, location, client, start, end, description (end accepts YYYY-MM or present/sekarang)',
         'profile.organizationExperienceEnabled, profile.organizationExperiences[]',
       ];
 
@@ -152,8 +152,10 @@ export function createMcpServer({ userId }) {
         notes: [
           'Do not invent personal history, employers, dates, degrees, certifications, or measurable achievements.',
           'Use empty strings for unknown optional values.',
-          'For experience dates, use YYYY-MM.',
-          'Experience descriptions accept either multiline text or an array of bullet strings.',
+          'For experience start dates, use YYYY-MM; for an ongoing role, set end to present or sekarang.',
+          'Experience descriptions accept multiline text. Keep client as a separate client field, not inside the achievement bullets.',
+          'Experience start dates use YYYY-MM; an ongoing role uses end: present or sekarang.',
+          'profile.linkedin and profile.portfolio are included in the contact line.',
           'Preserve every supplied experience bullet. Do not silently remove or summarize bullet points.',
           'The cover-letter signature image is optional.',
           'Do not pass or reuse profile.signatureImage during generation. The MCP server loads the signature belonging to the selected candidate profile.',

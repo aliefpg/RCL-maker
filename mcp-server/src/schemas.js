@@ -3,13 +3,15 @@ import { z } from 'zod';
 const shortText = z.string().max(200).optional().default('');
 const longText = z.string().max(5000).optional().default('');
 const month = z.string().regex(/^$|^\d{4}-(0[1-9]|1[0-2])$/).optional().default('');
+const experienceEnd = z.string().regex(/^$|^\d{4}-(0[1-9]|1[0-2])$|^(present|current|sekarang)$/i).optional().default('');
 
 const experienceSchema = z.object({
   role: shortText,
   company: shortText,
   location: shortText,
+  client: shortText,
   start: month,
-  end: month,
+  end: experienceEnd,
   description: longText,
 });
 
@@ -17,6 +19,8 @@ const profileSchema = z.object({
   name: shortText,
   phone: shortText,
   email: shortText,
+  linkedin: shortText,
+  portfolio: shortText,
   location: shortText,
   letterYear: z.string().max(4).optional().default(''),
   experiences: z.array(experienceSchema).max(10).optional().default([]),
@@ -27,8 +31,8 @@ const profileSchema = z.object({
   educationStart: month,
   educationEnd: month,
   educationGpa: shortText,
-  organizationExperienceEnabled: z.boolean().optional().default(false),
-  organizationExperiences: z.array(experienceSchema).max(10).optional().default([]),
+  organizationExperienceEnabled: z.boolean().optional(),
+  organizationExperiences: z.array(experienceSchema).max(10).optional(),
   signatureMode: z.enum(['manual', 'upload']).optional().default('manual'),
   signatureImage: z.string().max(700000).optional().default(''),
 }).passthrough();

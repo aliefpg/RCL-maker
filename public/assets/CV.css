@@ -72,3 +72,53 @@
 }
 
 /* Projects now reuse .doc-bullets from styles.css (bullet + bold title inline with description) */
+/* Company and institution locations stay alongside their titles. */
+.doc-job-location-line {
+  display: inline;
+  margin: 0;
+  font-size: 10pt;
+  font-style: italic;
+  font-weight: normal;
+  color: #767171;
+  overflow-wrap: anywhere;
+}
+.doc-job-location-inline {
+  display: inline;
+  font-weight: normal;
+  font-style: italic;
+  color: #767171;
+  overflow-wrap: anywhere;
+}
+.doc-job-client {
+  display: block;
+  margin: 2px 0 4px;
+  font-size: 10pt;
+  font-style: normal;
+  color: #444;
+}
+.current-job-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .85rem;
+}
+
+/* Work Experience only: reserve the date column and wrap long company/location text. */
+[data-work-experiences] .doc-job-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: start;
+  column-gap: 10px;
+}
+[data-work-experiences] .doc-job-title {
+  min-width: 0;
+  max-width: 55%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+[data-work-experiences] .doc-job-location-inline {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}

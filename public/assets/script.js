@@ -61,14 +61,16 @@ const PROFILE_DEFAULTS = {
   name: 'Nama Anda',
   phone: 'Nomor Telepon',
   email: 'email@example.com',
+  linkedin: '',
+  portfolio: '',
   location: 'Kota, Negara',
   letterYear: '2026',
   profileLocked: false,
   organizationExperienceEnabled: false,
   organizationExperiences: [],
   experiences: [
-    { role: 'Jabatan', company: 'Nama Perusahaan', location: 'Kota, Negara', start: '', end: '', description: '' },
-    { role: 'Jabatan', company: 'Nama Perusahaan', location: 'Kota, Negara', start: '', end: '', description: '' },
+    { role: 'Jabatan', company: 'Nama Perusahaan', location: 'Kota, Negara', client: '', start: '', end: '', description: '' },
+    { role: 'Jabatan', company: 'Nama Perusahaan', location: 'Kota, Negara', client: '', start: '', end: '', description: '' },
   ],
   educationDegreeId: 'Nama Jurusan',
   educationDegreeEn: 'Degree / Major',
@@ -151,8 +153,11 @@ function normalizeProfile(input) {
       role: String(item.role || '').slice(0, 200),
       company: String(item.company || '').slice(0, 200),
       location: String(item.location || '').slice(0, 200),
+      client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-\d{2}$/.test(item.start) ? item.start : '',
-      end: /^\d{4}-\d{2}$/.test(item.end) ? item.end : '',
+      end: /^(?:\d{4}-\d{2}|present|current|sekarang)$/i.test(String(item.end || '').trim())
+        ? (/^(present|current|sekarang)$/i.test(String(item.end || '').trim()) ? 'present' : String(item.end).trim())
+        : '',
       description: String(item.description || '').slice(0, 5000),
     }))
     : (normalized.organizationExperienceEnabled && typeof input?.organizationExperience === 'string' && input.organizationExperience.trim()
@@ -169,10 +174,21 @@ function normalizeProfile(input) {
       role: String(item.role || '').slice(0, 200),
       company: String(item.company || '').slice(0, 200),
       location: String(item.location || '').slice(0, 200),
+      client: String(item.client || '').slice(0, 200),
       start: /^\d{4}-\d{2}$/.test(item.start) ? item.start : '',
-      end: /^\d{4}-\d{2}$/.test(item.end) ? item.end : '',
+      end: /^(?:\d{4}-\d{2}|present|current|sekarang)$/i.test(String(item.end || '').trim())
+        ? (/^(present|current|sekarang)$/i.test(String(item.end || '').trim()) ? 'present' : String(item.end).trim())
+        : '',
       description: String(item.description || '').slice(0, 5000),
     }));
+    normalized.experiences.forEach(experience => {
+      const lines = experience.description.split(/\r?\n/);
+      const clientLine = lines.find(line => /^\s*[•*-]?\s*client\s*:/i.test(line));
+      if (!experience.client && clientLine) {
+        experience.client = clientLine.replace(/^\s*[•*-]?\s*client\s*:\s*/i, '').trim().slice(0, 200);
+        experience.description = lines.filter(line => !/^\s*[•*-]?\s*client\s*:/i.test(line)).join('\n').trim();
+      }
+    });
   } else {
     normalized.experiences = PROFILE_DEFAULTS.experiences.map((experience, index) => {
       const prefix = `job${index + 1}`;
@@ -191,6 +207,8 @@ function normalizeProfile(input) {
       };
     });
   }
+  normalized.linkedin = String(input?.linkedin || input?.linkedinUrl || normalized.linkedin || '').trim().slice(0, 200);
+  normalized.portfolio = String(input?.portfolio || input?.portfolioUrl || input?.website || input?.github || normalized.portfolio || '').trim().slice(0, 200);
   if (typeof input?.educationDegree === 'string') {
     normalized.educationDegreeEn = input.educationDegree.trim().slice(0, 200);
   }
@@ -219,6 +237,9 @@ const MONTHS = {
 };
 
 function formatProfileDate(value, language = getDocumentLanguage()) {
+  if (/^(present|current|sekarang)$/i.test(String(value || '').trim())) {
+    return language === 'en' ? 'Present' : 'Sekarang';
+  }
   const match = /^(\d{4})-(\d{2})$/.exec(value || '');
   if (!match) return '';
   const month = Number(match[2]);
@@ -274,10 +295,11 @@ function renderExperienceEntries(experiences) {
       return `
         <div class="doc-job">
           <div class="doc-job-row">
-            <span class="doc-job-title">${escHtml(experience.company || experience.role || '[Perusahaan]')}${experience.company && experience.location ? ` <span class="doc-job-location"><span class="doc-job-location-separator">— </span>${escHtml(experience.location)}</span>` : ''}</span>
+            <span class="doc-job-title">${escHtml(experience.company || experience.role || '[Perusahaan]')}${experience.location ? ` <span class="doc-job-location-inline">— ${escHtml(experience.location)}</span>` : ''}</span>
             <span class="doc-job-date">${escHtml(profileDateRange(experience.start, experience.end))}</span>
           </div>
-          <div class="doc-job-org">${escHtml(experience.role)}</div>
+          ${experience.role ? `<div class="doc-job-org">${escHtml(experience.role)}</div>` : ''}
+          ${experience.client ? `<div class="doc-job-client">Client: ${escHtml(experience.client)}</div>` : ''}
           ${description}
         </div>`;
     }).join('');
@@ -337,7 +359,7 @@ function updateProfilePreview() {
     el.textContent = lang === 'en' ? profile.educationDegreeEn : profile.educationDegreeId;
   });
   document.querySelectorAll('[data-profile="contact"]').forEach(el => {
-    el.textContent = [profile.phone, profile.email, profile.location].filter(Boolean).join(' | ');
+    el.textContent = [profile.phone, profile.email, profile.linkedin, profile.portfolio].filter(Boolean).join(' | ');
   });
   document.querySelectorAll('[data-profile="signatureContact"]').forEach(el => {
     el.textContent = [profile.phone, profile.email].filter(Boolean).join(' | ');
@@ -447,7 +469,7 @@ function addProfileForm() {
 
   const groups = [
     ['Data Diri', [
-      ['name', 'Nama lengkap'], ['phone', 'Nomor telepon'], ['email', 'Email'], ['location', 'Kota domisili'], ['letterYear', 'Tahun surat lamaran'],
+      ['name', 'Nama lengkap'], ['phone', 'Nomor telepon'], ['email', 'Email'], ['linkedin', 'LinkedIn URL'], ['portfolio', 'Portfolio / GitHub URL'], ['location', 'Kota domisili'], ['letterYear', 'Tahun surat lamaran'],
     ]],
     ['Pendidikan', [
       ['educationDegreeId', 'Gelar / jurusan (Indonesia)'], ['educationDegreeEn', 'Degree / major (English)'], ['educationInstitution', 'Nama kampus'], ['educationLocation', 'Lokasi kampus'], ['educationGpa', 'IPK / GPA'],
@@ -628,9 +650,10 @@ function addProfileForm() {
       <div class="experience-card" data-experience-index="${index}">
         <h3>Pengalaman ${index + 1}</h3>
         <div class="experience-grid">
-          ${[['role','Jabatan/peran'],['company','Nama perusahaan'],['location','Lokasi']].map(([key,label]) => `
-            <label>${label}<input type="text" data-experience-field="${key}" value="${escHtml(experience[key])}"></label>
+          ${[['role','Jabatan/peran'],['company','Nama perusahaan'],['location','Lokasi'],['client','Client (opsional)']].map(([key,label]) => `
+            <label>${label}<input type="text" data-experience-field="${key}" value="${escHtml(experience[key] || '')}"></label>
           `).join('')}
+          <label class="current-job-toggle"><span><input type="checkbox" data-current-job="${index}" ${/^(present|current|sekarang)$/i.test(String(experience.end || '')) ? 'checked' : ''}> Masih bekerja</span></label>
           ${[['start','Mulai'],['end','Selesai']].map(([key,label]) => `
             <label>${label}<span class="experience-date">${monthSelect(experience[key], index, key)}${yearSelect(experience[key], index, key)}</span></label>
           `).join('')}
@@ -744,6 +767,20 @@ function addProfileForm() {
     syncProfilePage();
   });
   dialog.addEventListener('change', event => {
+    const currentJobToggle = event.target.closest('[data-current-job]');
+    if (currentJobToggle) {
+      const index = Number(currentJobToggle.dataset.currentJob);
+      const experience = sharedProfile.experiences[index];
+      if (experience) {
+        experience.end = currentJobToggle.checked ? 'present' : '';
+        persistProfile();
+        renderExperienceFields();
+        updateProfilePreview();
+        syncProfilePage();
+      }
+      return;
+    }
+
     const select = event.target.closest('[data-date-part]');
     if (!select) return;
     const index = Number(select.dataset.experienceIndex);

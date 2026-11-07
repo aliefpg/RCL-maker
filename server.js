@@ -2,8 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const { createHash, randomUUID } = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
 const { ImageRun } = require('docx');
 const htmlPdf = require('html-pdf-node');
 const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition } = require('docx');
@@ -197,160 +195,10 @@ async function generatePdf(file, options) {
   }
 }
 
-
-// Server-only Supabase client for one-time signature upload links.
-// The service-role key must never be exposed to browser code.
-let signatureSupabaseClient;
-function getSignatureSupabase() {
-  if (!signatureSupabaseClient) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-    if (!url || !key) {
-      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for signature uploads.');
-    }
-    signatureSupabaseClient = createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  }
-  return signatureSupabaseClient;
-}
-
-const SIGNATURE_BUCKET = process.env.SUPABASE_SIGNATURE_BUCKET || 'profile-signatures';
-const SIGNATURE_MAX_BYTES = 512 * 1024;
-
-function validSignatureImage(buffer, mimeType) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 1 || buffer.length > SIGNATURE_MAX_BYTES) return false;
-  if (mimeType === 'image/png') {
-    return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  }
-  if (mimeType === 'image/jpeg') {
-    return buffer[0] === 0xff && buffer[1] === 0xd8
-      && buffer[buffer.length - 2] === 0xff && buffer[buffer.length - 1] === 0xd9;
-  }
-  return false;
-}
-
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-
-// One-time signature upload endpoint. The raw token is delivered only in a
-// short-lived private URL; only its SHA-256 hash is stored in Supabase.
-app.post(
-  '/api/signature-upload/:token',
-  express.raw({ type: ['image/png', 'image/jpeg'], limit: '512kb' }),
-  async (req, res) => {
-    let uploadedPath = null;
-    try {
-      const token = String(req.params.token || '');
-      if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) {
-        return res.status(400).json({ error: 'Invalid upload token.' });
-      }
-
-      const mimeType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
-      const imageBuffer = req.body;
-      if (!validSignatureImage(imageBuffer, mimeType)) {
-        return res.status(400).json({
-          error: 'File harus berupa PNG/JPEG valid dengan ukuran maksimal 512 KB.',
-        });
-      }
-
-      const supabase = getSignatureSupabase();
-      const tokenHash = createHash('sha256').update(token).digest('hex');
-      const now = new Date().toISOString();
-
-      const { data: uploadToken, error: tokenError } = await supabase
-        .from('signature_upload_tokens')
-        .select('token_hash, user_id, profile_id, expires_at, used_at')
-        .eq('token_hash', tokenHash)
-        .gt('expires_at', now)
-        .is('used_at', null)
-        .maybeSingle();
-
-      if (tokenError) throw new Error(`Unable to validate upload token: ${tokenError.message}`);
-      if (!uploadToken) {
-        return res.status(410).json({ error: 'Tautan upload tidak valid, sudah digunakan, atau kedaluwarsa. Minta tautan baru dari Claude.' });
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('candidate_profiles')
-        .select('id, user_id, profile_name, profile_data')
-        .eq('id', uploadToken.profile_id)
-        .eq('user_id', uploadToken.user_id)
-        .maybeSingle();
-
-      if (profileError) throw new Error(`Unable to load candidate profile: ${profileError.message}`);
-      if (!profile) return res.status(404).json({ error: 'Profil kandidat tidak ditemukan.' });
-
-      // Atomically claim the one-time token before accepting the file.
-      const { data: claimedToken, error: claimError } = await supabase
-        .from('signature_upload_tokens')
-        .update({ used_at: now })
-        .eq('token_hash', tokenHash)
-        .is('used_at', null)
-        .gt('expires_at', now)
-        .select('token_hash')
-        .maybeSingle();
-
-      if (claimError) throw new Error(`Unable to claim upload token: ${claimError.message}`);
-      if (!claimedToken) {
-        return res.status(410).json({ error: 'Tautan upload sudah digunakan atau kedaluwarsa. Minta tautan baru dari Claude.' });
-      }
-
-      const extension = mimeType === 'image/png' ? 'png' : 'jpg';
-      uploadedPath = `${encodeURIComponent(uploadToken.user_id)}/${profile.id}/signature-${randomUUID()}.${extension}`;
-
-      const { error: storageError } = await supabase.storage
-        .from(SIGNATURE_BUCKET)
-        .upload(uploadedPath, imageBuffer, {
-          contentType: mimeType,
-          cacheControl: '3600',
-          upsert: true,
-        });
-
-      if (storageError) throw new Error(`Gagal menyimpan gambar TTD: ${storageError.message}`);
-
-      const nextProfileData = { ...(profile.profile_data || {}) };
-      const oldPath = nextProfileData.signature?.storagePath;
-      nextProfileData.signature = {
-        mode: 'upload',
-        storagePath: uploadedPath,
-        contentType: mimeType,
-        extension,
-        updatedAt: new Date().toISOString(),
-      };
-
-      const { error: updateError } = await supabase
-        .from('candidate_profiles')
-        .update({ profile_data: nextProfileData })
-        .eq('id', profile.id)
-        .eq('user_id', uploadToken.user_id);
-
-      if (updateError) {
-        await supabase.storage.from(SIGNATURE_BUCKET).remove([uploadedPath]).catch(() => {});
-        throw new Error(`Gagal memperbarui data tanda tangan profil: ${updateError.message}`);
-      }
-
-      // Remove a previous extension variant only after metadata has been updated.
-      if (oldPath && oldPath !== uploadedPath) {
-        await supabase.storage.from(SIGNATURE_BUCKET).remove([oldPath]).catch(() => {});
-      }
-
-
-      return res.json({
-        success: true,
-        message: 'Tanda tangan berhasil disimpan.',
-        profileName: profile.profile_name,
-        fileType: mimeType,
-      });
-    } catch (error) {
-      console.error('Signature upload failed:', error);
-      return res.status(500).json({ error: error.message || 'Upload tanda tangan gagal.' });
-    }
-  },
-);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -939,9 +787,9 @@ body {
 
 /* JOB HEADER */
     .job-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      column-gap: 12px;
       align-items: start;
       width: 100%;
       font-size: 11pt;
@@ -949,17 +797,15 @@ body {
       margin-bottom: 2px;
     }
 
-.job-header > span:first-child {
-      flex: 0 1 55%;
-      max-width: 55%;
+.work-experiences .job-header > span:first-child {
       min-width: 0;
+      max-width: 55%;
       overflow-wrap: anywhere;
       word-break: normal;
     }
 
 .job-date {
       display: block;
-      flex-shrink: 0;
       white-space: nowrap;
       text-align: right;
       font-size: 10pt;
@@ -1105,7 +951,7 @@ ul:last-of-type li:last-child {
     ${L.workExp}
   </div>
 
-  ${experienceHtml(PROFILE, lang, parseBullets)}
+  <div class="work-experiences">${experienceHtml(PROFILE, lang, parseBullets)}</div>
 
 <div class="section-title">
     ${L.education}
@@ -1134,10 +980,8 @@ ul:last-of-type li:last-child {
   </div>
 
 ${includeOrganizationSection ? `
-<div class="section-title">
-    ${L.orgExp}
-  </div>
-  ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
+<div class="section-title">${L.orgExp}</div>
+<div class="organization-experiences">${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}</div>
 ` : ''}
 
 <div class="section-title">
@@ -1461,8 +1305,9 @@ body {
       margin-bottom: 2px;
     }
 
-.job-header > span:first-child {
+.work-experiences .job-header > span:first-child {
       min-width: 0;
+      max-width: 55%;
       overflow-wrap: anywhere;
       word-break: normal;
     }
@@ -1607,7 +1452,7 @@ ul:last-of-type li:last-child {
     ${L.workExp}
   </div>
 
-  ${experienceHtml(PROFILE, lang, parseBullets)}
+  <div class="work-experiences">${experienceHtml(PROFILE, lang, parseBullets)}</div>
 
 <div class="education-block">
     <div class="section-title">
@@ -1638,7 +1483,10 @@ ul:last-of-type li:last-child {
   </div>
 
 ${includeOrganizationSection ? `
-
+<div class="section-block">
+  <div class="section-title">${L.orgExp}</div>
+  ${organizationExperienceHtml(organizationExperiences, lang, parseBullets)}
+</div>
 ` : ''}
 
 <!-- Projects temporarily hidden.
